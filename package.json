@@ -1,0 +1,12 @@
+{
+  "name": "sarvam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sarvam: a gated zero-to-cyber curriculum with in-browser labs and spaced review.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node test/verify.mjs",
+    "test:render": "node test/render.mjs"
+  }
+}
