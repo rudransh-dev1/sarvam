@@ -461,3 +461,37 @@ a.lesson-row { text-decoration: none; }
   .foot { padding: 16px 14px; }
   .foot-links { margin-left: 0; }
 }
+
+/* ---------- labs: browser frame ---------- */
+.browser { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0b1219; }
+.browser-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  background: #101a22; border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.browser-dots, .win-btns { display: inline-flex; gap: 5px; flex: 0 0 auto; }
+.browser-dots i, .win-btns i { width: 8px; height: 8px; border-radius: 50%; background: #2b3d4d; display: block; }
+.browser-url { flex: 1; background: #0a1017; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; color: #9fb4c7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-tag { color: var(--accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.browser iframe { display: block; width: 100%; height: 420px; border: 0; background: #f4f6f8; }
+.lab-note { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- labs: virtual desktop ---------- */
+.osdesk { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.window { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0b1219; display: flex; flex-direction: column; }
+.win-bar {
+  display: flex; align-items: center; gap: 10px; padding: 7px 11px;
+  background: #16222c; border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: #9fb4c7;
+}
+.win-name { font-weight: 600; color: #cfe3d8; }
+.win-url { flex: 1; background: #0a1017; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.win-body { flex: 1; min-height: 0; }
+.win-frame iframe { display: block; width: 100%; height: 100%; min-height: 300px; border: 0; background: #f4f6f8; }
+.win-body.term { height: 300px; border: 0; border-radius: 0; }
+.term-sm { height: 238px !important; }
+
+@media (max-width: 900px) {
+  .osdesk { grid-template-columns: 1fr; }
+  .browser iframe { height: 340px; }
+}

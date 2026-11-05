@@ -1,6 +1,7 @@
 import { CURRICULUM, LESSONS, lessonById, lessonIndex, TOTAL_LESSONS } from './data/curriculum.js';
 import * as P from './progress.js';
 import { createShell } from './terminal.js';
+import { buildApp } from './weblab.js';
 
 const app = document.getElementById('app');
 const LAB_KEY = 'sarvam.labs.v1';
@@ -63,7 +64,12 @@ function renderPath() {
       .map((lesson) => {
         const status = P.lessonStatus(lesson);
         const index = lessonIndex(lesson.id);
-        const labTag = lesson.labType === 'terminal' ? '<span class="tag lab">terminal lab</span>' : '<span class="tag quiz">check</span>';
+        const labTag =
+          lesson.labType === 'web'
+            ? '<span class="tag lab">web lab</span>'
+            : lesson.labType === 'terminal'
+              ? '<span class="tag lab">terminal lab</span>'
+              : '<span class="tag quiz">check</span>';
         const dot = status === 'done' ? '✓' : status === 'open' ? '▸' : '🔒';
         const href = status === 'locked' ? '#' : '#/lesson/' + lesson.id;
         const clickable = status === 'locked' ? 'locked' : '';
@@ -118,51 +124,42 @@ function renderPath() {
   updateChrome();
 }
 
-/* ---------------- terminal lab ---------------- */
+/* ---------------- labs: terminal, network, web ---------------- */
 
-function mountTerminalLab(host, lesson, onPass) {
-  const lab = lesson.lab;
-  const shell = createShell(lab.fs, lab.startCwd);
+function labLabel(labType) {
+  if (labType === 'web') return 'Lab · vulnerable web app';
+  if (labType === 'os') return 'Lab · your own box (terminal + browser)';
+  if (labType === 'terminal') return 'Lab · simulated shell';
+  return 'Check';
+}
+
+function mountLab(host, lesson, onPass) {
+  const lab = lesson.lab || {};
   const cache = labCache();
   const done = new Set(cache[lesson.id] || []);
+  let writer = () => {};
+  let shell = null;
 
   host.innerHTML = `
     <div class="card">
       <div class="card-head">
-        <h3>Lab · simulated shell</h3>
+        <h3>${esc(labLabel(lesson.labType))}</h3>
         <span class="spacer"></span>
         <button class="ghost" data-act="reset">reset</button>
       </div>
-      <div class="term" id="term"></div>
-      <div class="term-input-row">
-        <span class="prompt" id="prompt">${esc(shell.prompt())}</span>
-        <input id="term-input" autocomplete="off" spellcheck="false" aria-label="terminal input" />
-      </div>
+      <div id="stage"></div>
       <div class="tasks" id="tasks"></div>
       <div class="flagbar">
-        <input id="answer-input" placeholder="Task answer or flag, e.g. SARVAM{...}" autocomplete="off" />
+        <input id="answer-input" placeholder="${lesson.labType === 'web' ? 'flag you found in the app, e.g. SARVAM{...}' : 'answer or flag, e.g. SARVAM{...}'}" autocomplete="off" />
         <button class="primary" id="answer-btn">submit</button>
       </div>
     </div>`;
 
-  const term = host.querySelector('#term');
-  const input = host.querySelector('#term-input');
-  const promptEl = host.querySelector('#prompt');
-
-  const write = (text, cls = '') => {
-    const div = document.createElement('div');
-    if (cls) div.className = cls;
-    div.textContent = text;
-    term.appendChild(div);
-    term.scrollTop = term.scrollHeight;
-  };
-
-  write(lab.intro || 'Lab ready. Type help.', 't-dim');
-  write('');
+  const stage = host.querySelector('#stage');
+  const tasksBox = host.querySelector('#tasks');
 
   const renderTasks = () => {
-    const box = host.querySelector('#tasks');
-    box.innerHTML = lab.tasks
+    tasksBox.innerHTML = (lab.tasks || [])
       .map(
         (t) => `
         <div class="task ${done.has(t.id) ? 'done' : ''}">
@@ -172,41 +169,123 @@ function mountTerminalLab(host, lesson, onPass) {
       )
       .join('');
   };
-  renderTasks();
 
-  const finishIfDone = () => {
+  const persist = () => {
     cache[lesson.id] = [...done];
     saveLabCache(cache);
-    if (done.size === lab.tasks.length) {
-      onPass();
-    }
   };
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    const cmd = input.value;
-    input.value = '';
-    write(shell.prompt() + ' ' + cmd, 't-cmd');
-    const res = shell.run(cmd);
-    if (res.clear) {
-      term.innerHTML = '';
-    } else if (res.out) {
-      write(res.out, res.err ? 't-err' : '');
-    }
-    promptEl.textContent = shell.prompt();
-    term.scrollTop = term.scrollHeight;
-  });
+  const finishIfDone = () => {
+    persist();
+    if (done.size === (lab.tasks || []).length) onPass();
+  };
 
-  host.querySelector('[data-act="reset"]').addEventListener('click', () => {
-    shell.reset();
-    term.innerHTML = '';
+  /* --- terminal lab --- */
+
+  function wireTerminal(container, compact) {
+    container.innerHTML = `
+      <div class="term ${compact ? 'term-sm' : ''}" id="term"></div>
+      <div class="term-input-row">
+        <span class="prompt" id="prompt"></span>
+        <input id="term-input" autocomplete="off" spellcheck="false" aria-label="terminal input" />
+      </div>`;
+    shell = createShell(lab.fs, lab.startCwd || '/home/student', { net: lab.net, dirb: lab.dirb });
+    const term = container.querySelector('#term');
+    const input = container.querySelector('#term-input');
+    const promptEl = container.querySelector('#prompt');
+
+    const write = (text, cls = '') => {
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = text;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    };
+
     write(lab.intro || 'Lab ready. Type help.', 't-dim');
     write('');
-    done.clear();
-    cache[lesson.id] = [];
-    saveLabCache(cache);
-    renderTasks();
     promptEl.textContent = shell.prompt();
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const cmd = input.value;
+      input.value = '';
+      write(shell.prompt() + ' ' + cmd, 't-cmd');
+      const res = shell.run(cmd);
+      if (res.clear) term.innerHTML = '';
+      else if (res.out) write(res.out, res.err ? 't-err' : '');
+      promptEl.textContent = shell.prompt();
+      term.scrollTop = term.scrollHeight;
+    });
+
+    input.focus();
+    return write;
+  }
+
+  function paintTerminal() {
+    const wrap = document.createElement('div');
+    stage.appendChild(wrap);
+    return wireTerminal(wrap, false);
+  }
+
+  /* --- web lab --- */
+
+  function paintWeb() {
+    const spec = lab.app || {};
+    stage.innerHTML = `
+      <div class="browser">
+        <div class="browser-bar">
+          <span class="browser-dots"><i></i><i></i><i></i></span>
+          <span class="browser-url">${esc(spec.baseUrl || 'http://notes.lab:8080')}</span>
+          <span class="browser-tag">sandbox</span>
+        </div>
+        <iframe id="webframe" title="lab web application" sandbox="allow-scripts" srcdoc="${esc(buildApp(spec))}"></iframe>
+      </div>
+      <p class="lab-note">${lab.intro || ''}</p>`;
+    return () => {};
+  }
+
+  function paintOS() {
+    const spec = lab.app || {};
+    stage.innerHTML = `
+      <div class="osdesk">
+        <div class="window">
+          <div class="win-bar">
+            <span class="win-name">Terminal</span>
+            <span class="win-btns"><i></i><i></i><i></i></span>
+          </div>
+          <div class="win-body" id="osterm"></div>
+        </div>
+        <div class="window">
+          <div class="win-bar">
+            <span class="win-name">Firefox</span>
+            <span class="win-url">${esc(spec.baseUrl || 'http://fakebank.lab')}</span>
+            <span class="win-btns"><i></i><i></i><i></i></span>
+          </div>
+          <div class="win-body win-frame">
+            <iframe id="webframe" title="lab web application" sandbox="allow-scripts" srcdoc="${esc(buildApp(spec))}"></iframe>
+          </div>
+        </div>
+      </div>
+      <p class="lab-note">${lab.intro || ''}</p>`;
+    return wireTerminal(stage.querySelector('#osterm'), true);
+  }
+
+  function paint() {
+    if (lesson.labType === 'web') writer = paintWeb();
+    else if (lesson.labType === 'os') writer = paintOS();
+    else writer = paintTerminal();
+  }
+
+  renderTasks();
+  paint();
+
+  host.querySelector('[data-act="reset"]').addEventListener('click', () => {
+    done.clear();
+    stage.innerHTML = '';
+    persist();
+    renderTasks();
+    paint();
     toast('Lab reset');
   });
 
@@ -215,16 +294,16 @@ function mountTerminalLab(host, lesson, onPass) {
     const raw = answerInput.value.trim();
     if (!raw) return;
     const norm = (v) => String(v).trim().toLowerCase().replace(/\s+/g, ' ');
-    const hit = lab.tasks.find((t) => !done.has(t.id) && norm(t.answer) === norm(raw));
+    const hit = (lab.tasks || []).find((t) => !done.has(t.id) && (norm(t.answer) === norm(raw) || (t.accept || []).some((a) => norm(a) === norm(raw))));
     if (hit) {
       done.add(hit.id);
       answerInput.value = '';
-      write('✓ accepted: ' + hit.prompt, 't-flag');
+      writer('✓ accepted: ' + hit.prompt, 't-flag');
       renderTasks();
-      toast(done.size === lab.tasks.length ? 'All tasks complete. Lab passed.' : 'Task cleared.');
+      toast(done.size === (lab.tasks || []).length ? 'All tasks complete. Lab passed.' : 'Task cleared.');
       finishIfDone();
     } else {
-      write('✗ "' + raw + '" is not it. Read the output again, or use the hint.', 't-err');
+      writer('✗ "' + raw + '" is not it. Read the output again, or open the hint.', 't-err');
       answerInput.select();
     }
   };
@@ -232,8 +311,6 @@ function mountTerminalLab(host, lesson, onPass) {
   answerInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submit();
   });
-
-  input.focus();
 }
 
 /* ---------------- quiz lab ---------------- */
@@ -380,7 +457,7 @@ function renderLesson(id) {
     updateChrome();
   };
 
-  if (lesson.labType === 'terminal') mountTerminalLab(host, lesson, onPass);
+  if (lesson.labType === 'terminal' || lesson.labType === 'web' || lesson.labType === 'os') mountLab(host, lesson, onPass);
   else mountQuizLab(host, lesson, onPass);
 
   paintFoot(false);

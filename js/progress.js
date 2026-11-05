@@ -72,9 +72,14 @@ export function isDone(lessonId) {
 }
 
 export function isUnlocked(index) {
-  if (index < 0) return false;
-  if (index === 0) return true;
-  return isDone(LESSONS[index - 1].id);
+  const lesson = LESSONS[index];
+  if (!lesson) return false;
+  if (lesson.bonus) return true;
+  // bonus rooms sit outside the ladder, so gate against the core sequence only
+  const chain = LESSONS.filter((l) => !l.bonus);
+  const pos = chain.findIndex((l) => l.id === lesson.id);
+  if (pos <= 0) return true;
+  return isDone(chain[pos - 1].id);
 }
 
 export function lessonStatus(lesson) {

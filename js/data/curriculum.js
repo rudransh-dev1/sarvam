@@ -4,10 +4,11 @@
  * gets gated automatically by order, and its cards join the review queue.
  *
  * Lesson shape:
- *  id, title, sub, minutes, labType: 'terminal' | 'quiz'
+ *  id, title, sub, minutes, labType: 'terminal' | 'web' | 'quiz'
  *  concept: HTML string
  *  quiz:   { questions: [{ q, options: [], answer: <index>, explain }] }   (labType 'quiz')
- *  lab:    { startCwd, intro, fs, tasks: [{ id, prompt, hint, answer }] }  (labType 'terminal')
+ *  lab:    { startCwd, intro, fs, net, tasks: [{ id, prompt, hint, answer }] }  (labType 'terminal')
+ *  lab:    { intro, app: {...}, tasks: [...] }                                   (labType 'web')
  *  cards:  [{ front, back }]   -> three per lesson is the house rule
  */
 
@@ -39,6 +40,149 @@ const AUTHLOG = [
 
 export const CURRICULUM = [
   {
+    id: 'bonus',
+    num: '00',
+    title: 'Your first hack',
+    meta: '25 minutes · always open, no prerequisites',
+    bonus: true,
+    lessons: [
+      {
+        id: 'bonus-bank',
+        bonus: true,
+        title: 'Hack the fake bank',
+        sub: 'dirb, a hidden admin page, and a green flag',
+        minutes: 25,
+        labType: 'os',
+        concept: `
+<h2>What you are about to do</h2>
+<p>You get a small Linux box with a bank application in the browser. The bank has a staff page that
+registers deposits. Nobody linked to it, which is exactly why it is still there. Your job is to find
+it by brute-forcing common file and directory names, then use it.</p>
+
+<h3>The tool: content discovery</h3>
+<p><code>dirb</code> (or gobuster, feroxbuster) takes a URL and a wordlist and asks the server for
+thousands of likely paths. Anything that answers with a real status code is a page that exists.
+Lines starting with <code>+</code> are hits.</p>
+<pre><code>dirb http://fakebank.lab</code></pre>
+<p>The output shows <code>CODE:200</code> for a normal page, <code>301</code> for a redirect to a
+directory, <code>403</code> for "exists but forbidden". All three tell you something is there.</p>
+
+<h3>Why this is a real bug class, not a game</h3>
+<p>Hidden pages are a broken access control problem: the developer assumed nobody would guess the
+URL, so the page has no authentication. In the OWASP Top 10 this sits at number one. Real
+engagements still find admin panels at <code>/admin</code>, backups at <code>/backup.zip</code>,
+and monitoring at <code>/server-status</code>.</p>
+
+<h3>Your moves</h3>
+<ol>
+  <li>In the terminal, scan the bank: <code>dirb http://fakebank.lab</code></li>
+  <li>In the browser, open the page the scan found.</li>
+  <li>That page lets anyone deposit money. Send $2000 to account 8881, which is you.</li>
+  <li>The bank home page then shows a green flag. Paste it below.</li>
+</ol>
+<p class="muted">Legal note: only ever do this against systems you own or have written permission to
+test. This lab is simulated, so nothing here touches a real bank.</p>`,
+        lab: {
+          kind: 'os',
+          intro: 'Two windows: a terminal and a browser. Start with dirb against http://fakebank.lab',
+          startCwd: '/home/student',
+          fs: d('755', {
+            home: d('755', {
+              student: d(
+                '755',
+                {
+                  'notes.txt': f('644', 'target: http://fakebank.lab\nwordlist: /usr/share/dirb/wordlists/common.txt\n', 'student')
+                },
+                'student'
+              )
+            })
+          }),
+          net: {
+            myIp: '10.10.14.23',
+            prefix: 24,
+            gateway: '10.10.14.1',
+            hosts: [
+              {
+                ip: '10.10.14.30',
+                name: 'fakebank.lab',
+                ports: [
+                  {
+                    port: 80,
+                    state: 'open',
+                    svc: 'http',
+                    version: 'nginx 1.18.0',
+                    web: {
+                      '/': 'Meridian Bank home. Your account is 8881.',
+                      '/bank-transfer': 'Admin portal: register cash deposits. No login check.',
+                      '/images': 'index of /images'
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          dirb: {
+            host: 'fakebank.lab',
+            paths: [
+              { path: '/bank-transfer', code: 200, size: 4663 },
+              { path: '/images', code: 301, size: 179 }
+            ]
+          },
+          app: {
+            baseUrl: 'http://fakebank.lab',
+            bank: {
+              name: 'Meridian Bank',
+              customer: 'Mrs G. Benjamin',
+              own: '8881',
+              balance: -1232.32,
+              accounts: [
+                { number: '8881', name: 'Mrs G. Benjamin' },
+                { number: '1234', name: 'J. Okafor' },
+                { number: '2863', name: 'A. Silva' }
+              ],
+              flag: 'SARVAM{bank_hacked}'
+            }
+          },
+          tasks: [
+            {
+              id: 'b-t1',
+              prompt: 'What is the account number on the bank home page?',
+              hint: 'Look at the browser panel before you break anything.',
+              answer: '8881'
+            },
+            {
+              id: 'b-t2',
+              prompt: 'Scan the bank and find the hidden page that registers staff deposits. Type its path.',
+              hint: 'dirb http://fakebank.lab',
+              answer: '/bank-transfer',
+              accept: ['bank-transfer', 'http://fakebank.lab/bank-transfer']
+            },
+            {
+              id: 'b-t3',
+              prompt: 'Deposit $2000 into account 8881, then open the bank home page. Paste the green flag.',
+              hint: 'The deposit form has no login check. Add the money to your own account.',
+              answer: 'SARVAM{bank_hacked}'
+            }
+          ]
+        },
+        cards: [
+          {
+            front: 'What does dirb (or gobuster) do?',
+            back: 'Content discovery: requests thousands of likely paths from a wordlist and reports the ones that answer. + lines are hits; 200, 301 and 403 all mean "exists".'
+          },
+          {
+            front: 'Why is a hidden admin page a security bug?',
+            back: 'The developer relies on nobody guessing the URL instead of checking authorisation. Broken access control, OWASP Top 10 number one.'
+          },
+          {
+            front: 'What does (CODE:200|SIZE:4663) tell you in dirb output?',
+            back: 'The page returned HTTP 200 (OK) and 4663 bytes of content, so it exists and is readable without authentication.'
+          }
+        ]
+      }
+    ]
+  },
+  {
     id: 'p0',
     num: '00',
     title: 'Computer and OS fundamentals',
@@ -49,7 +193,7 @@ export const CURRICULUM = [
         title: 'Bits, bytes and hex',
         sub: 'Why every address, permission and hash looks like that',
         minutes: 12,
-        labType: 'quiz',
+        labType: 'terminal',
         concept: `
 <h2>Everything is a number underneath</h2>
 <p>A computer stores bits. A byte is 8 bits. That is the whole foundation, and the reason a permission
@@ -78,36 +222,45 @@ hex        A    C    -> 0xAC -> 172</code></pre>
 <div class="callout">Do not memorise the tables. Memorise the trick: hex to binary is 4 bits per digit,
 then add the place values.</div>
 `,
-        quiz: {
-          questions: [
+        lab: {
+          startCwd: '/home/student',
+          intro: 'A dumped directory. Decode, hash and inspect your way through it. Type help if you need the command list.',
+          fs: d('755', {
+            home: d('755', {
+              student: d('755', {
+                'readme.txt': f('644', 'hello world\n', 'student'),
+                'token.b64': f('644', 'U0FSVkFNe2JpdHNfYXJlX3RoZV9iZWdpbm5pbmd9\n', 'student'),
+                'firmware.bin': f(
+                  '644',
+                  '\u0000\u0001ELF\u0002\u0000\u0000\u0000PK\u0003\u0004debug: SARVAM{strings_never_lie}\u0000\u0000\u0007\u0008',
+                  'student'
+                ),
+                'checksums.txt': f(
+                  '644',
+                  '5eb63bbbe01eeed093cb22bb8f5acdc3  readme.txt\n9b9d6c1a2e2c5c5c8b6c1a2e2c5c5c8b  token.b64\n',
+                  'student'
+                )
+              })
+            })
+          }),
+          tasks: [
             {
-              q: 'What is binary 10110100 in decimal?',
-              options: ['164', '180', '148', '196'],
-              answer: 1,
-              explain: '128+32+16+4 = 180. The 64 and 8 and 2 and 1 bits are off.'
+              id: 't1',
+              prompt: 'Decode token.b64 and submit the flag inside it.',
+              hint: 'cat token.b64 | base64 -d',
+              answer: 'SARVAM{bits_are_the_beginning}'
             },
             {
-              q: 'What is decimal 173 in hex?',
-              options: ['0xAD', '0xAC', '0xBD', '0xA3'],
-              answer: 0,
-              explain: '173 = 1010 1101 = 0xAD. 160+13, and 13 is D.'
+              id: 't2',
+              prompt: 'Submit the md5 of readme.txt, exactly as md5sum prints it.',
+              hint: 'md5sum readme.txt. The same hash sits in checksums.txt, which is how you prove a file was not tampered with.',
+              answer: '5eb63bbbe01eeed093cb22bb8f5acdc3'
             },
             {
-              q: 'chmod 640 gives which permissions?',
-              options: ['rw-r-----', 'rwxr-----', 'rw-r--r--', 'r-xr--r--'],
-              answer: 0,
-              explain: '6 = rw-, 4 = r--, 0 = ---. Owner read+write, group read, others nothing.'
-            },
-            {
-              q: 'Why does hex show up so often in security tooling?',
-              options: [
-                'Because it is more precise than decimal',
-                'Because two hex digits map cleanly onto one byte',
-                'Because it compresses data',
-                'Because hardware requires it'
-              ],
-              answer: 1,
-              explain: 'One hex digit per nibble, two per byte. It is binary in readable clothing.'
+              id: 't3',
+              prompt: 'firmware.bin is mostly junk bytes. Pull the readable flag out of it.',
+              hint: 'strings firmware.bin. xxd firmware.bin shows the bytes underneath.',
+              answer: 'SARVAM{strings_never_lie}'
             }
           ]
         },
@@ -407,7 +560,7 @@ half of the report you will eventually hand a client.</div>
         title: 'IP addresses, masks and CIDR',
         sub: 'The notation that shows up in every scan, rule and firewall',
         minutes: 16,
-        labType: 'quiz',
+        labType: 'terminal',
         concept: `
 <h2>An address is a location, a mask is the neighbourhood</h2>
 <p><code>192.168.1.10/24</code>: the address is 192.168.1.10 and the <code>/24</code> says the first 24 bits
@@ -433,31 +586,48 @@ usable hosts. This one sentence answers a third of all networking interview ques
 internal?" question are all this arithmetic. Getting a scope wrong is how people scan the wrong network
 and end up in trouble.</div>
 `,
-        quiz: {
-          questions: [
+        lab: {
+          startCwd: '/home/student',
+          intro: 'You are on a lab network with no notes. Recon it with ip, ping and nmap.',
+          fs: d('755', {
+            home: d('755', { student: d('755', {}, 'student') })
+          }),
+          net: {
+            myIp: '10.10.14.23',
+            prefix: 24,
+            gateway: '10.10.14.1',
+            dns: '10.10.14.2',
+            hosts: [
+              { ip: '10.10.14.1', name: 'gw.lab', ports: [{ port: 22, state: 'open', svc: 'ssh', version: 'OpenSSH 8.2p1' }] },
+              {
+                ip: '10.10.14.5',
+                name: 'files.lab',
+                ports: [
+                  { port: 22, state: 'open', svc: 'ssh', version: 'OpenSSH 8.2p1 Ubuntu' },
+                  { port: 8080, state: 'open', svc: 'http', version: 'nginx 1.18.0' }
+                ]
+              },
+              { ip: '10.10.14.9', name: 'db.lab', ports: [{ port: 3306, state: 'open', svc: 'mysql', version: 'MySQL 8.0.35' }] }
+            ]
+          },
+          tasks: [
             {
-              q: 'How many usable hosts in a /26?',
-              options: ['62', '64', '30', '126'],
-              answer: 0,
-              explain: '/26 = 64 addresses, minus network and broadcast = 62 usable.'
+              id: 't1',
+              prompt: 'What is your own IPv4 address on this network?',
+              hint: 'ip a',
+              answer: '10.10.14.23'
             },
             {
-              q: '192.168.4.37/24 sits on which network address?',
-              options: ['192.168.4.0', '192.168.4.32', '192.168.0.0', '192.168.4.37'],
-              answer: 0,
-              explain: '/24 fixes the first three bytes, so the network is 192.168.4.0.'
+              id: 't2',
+              prompt: 'How many hosts answer on 10.10.14.0/24? Submit the number.',
+              hint: 'nmap -sn 10.10.14.0/24 counts live hosts without touching ports.',
+              answer: '3'
             },
             {
-              q: 'Which of these is NOT a private address?',
-              options: ['10.44.2.9', '172.20.1.5', '192.168.0.12', '172.40.1.5'],
-              answer: 3,
-              explain: 'Private 172 space is only 172.16.0.0 to 172.31.255.255. 172.40 is public.'
-            },
-            {
-              q: 'A host shows 169.254.11.20. What happened?',
-              options: ['It is on a VPN', 'DHCP did not answer, so it self-assigned', 'It is a loopback', 'The mask is wrong'],
-              answer: 1,
-              explain: 'APIPA/link-local means no DHCP lease was obtained. Often a cable, VLAN or DHCP issue.'
+              id: 't3',
+              prompt: 'Submit the network address of your own subnet.',
+              hint: 'ipcalc 10.10.14.23/24',
+              answer: '10.10.14.0'
             }
           ]
         },
@@ -472,7 +642,7 @@ and end up in trouble.</div>
         title: 'Subnetting that you can do in your head',
         sub: 'Block sizes, ranges and why /30 exists',
         minutes: 18,
-        labType: 'quiz',
+        labType: 'terminal',
         concept: `
 <h2>Count in blocks, not in bits</h2>
 <p>The mask decides the block size. For any mask, block size = 256 minus the last mask octet.</p>
@@ -499,31 +669,37 @@ loopback interfaces.</p>
   <li>Segmentation: flat /16 internal networks are why one compromised laptop reaches the database.</li>
 </ul>
 `,
-        quiz: {
-          questions: [
+        lab: {
+          startCwd: '/home/student',
+          intro: 'ipcalc is installed here. Use it instead of guessing: ipcalc <address>/<prefix>.',
+          fs: d('755', {
+            home: d('755', { student: d('755', {}, 'student') })
+          }),
+          net: { myIp: '10.10.14.23', prefix: 24, gateway: '10.10.14.1', dns: '10.10.14.2', hosts: [] },
+          tasks: [
             {
-              q: 'For 10.0.0.130/26, what is the network address?',
-              options: ['10.0.0.128', '10.0.0.96', '10.0.0.0', '10.0.0.192'],
-              answer: 0,
-              explain: 'Block size 64: blocks are .0 .64 .128 .192. 130 falls in .128, so network is 10.0.0.128.'
+              id: 't1',
+              prompt: 'Submit the network address of 192.168.4.37/26.',
+              hint: 'ipcalc 192.168.4.37/26',
+              answer: '192.168.4.0'
             },
             {
-              q: 'What is the broadcast address of 172.16.5.70/28?',
-              options: ['172.16.5.79', '172.16.5.71', '172.16.5.64', '172.16.5.80'],
-              answer: 0,
-              explain: 'Block size 16, blocks .64 and .80. Network .64, usable .65-.78, broadcast .79.'
+              id: 't2',
+              prompt: 'How many usable hosts does a /26 give you?',
+              hint: 'ipcalc prints total and usable. The two you cannot assign are network and broadcast.',
+              answer: '62'
             },
             {
-              q: 'How many usable hosts does a /30 provide?',
-              options: ['2', '4', '6', '14'],
-              answer: 0,
-              explain: '4 addresses minus network and broadcast = 2 usable. Ideal for point-to-point links.'
+              id: 't3',
+              prompt: 'The host 10.10.14.200/27 sits on which network address?',
+              hint: 'ipcalc 10.10.14.200/27. A /27 is 32 addresses, so the boundaries are 0, 32, 64 ... 192, 224.',
+              answer: '10.10.14.192'
             },
             {
-              q: 'Two subnets must each hold 60 hosts. Which mask?',
-              options: ['/26', '/27', '/28', '/25'],
-              answer: 0,
-              explain: '/26 gives 62 usable, which is the smallest mask that fits 60 hosts.'
+              id: 't4',
+              prompt: 'Submit the broadcast address of 172.16.5.130/25.',
+              hint: 'ipcalc 172.16.5.130/25',
+              answer: '172.16.5.255'
             }
           ]
         },
@@ -538,7 +714,7 @@ loopback interfaces.</p>
         title: 'TCP, UDP, ports and the handshake',
         sub: 'What actually happens when two machines talk',
         minutes: 16,
-        labType: 'quiz',
+        labType: 'terminal',
         concept: `
 <h2>Two transports, two personalities</h2>
 <p>TCP is ordered, acknowledged, connection-based. UDP is fire-and-forget. Almost every attack you will
@@ -569,31 +745,57 @@ to leave a quiet socket open.</p>
 <div class="callout">UDP matters more than beginners expect: DNS on 53, SNMP on 161 (often with default
 community strings), DHCP on 67/68, and VPNs. A TCP-only scan leaves blind spots.</div>
 `,
-        quiz: {
-          questions: [
+        lab: {
+          startCwd: '/home/student',
+          intro: 'A small lab network, a scanner and curl. Map the service before you touch it.',
+          fs: d('755', {
+            home: d('755', { student: d('755', {}, 'student') })
+          }),
+          net: {
+            myIp: '10.10.14.23',
+            prefix: 24,
+            gateway: '10.10.14.1',
+            dns: '10.10.14.2',
+            hosts: [
+              {
+                ip: '10.10.14.5',
+                name: 'files.lab',
+                ports: [
+                  { port: 22, state: 'open', svc: 'ssh', version: 'OpenSSH 8.2p1 Ubuntu' },
+                  {
+                    port: 8080,
+                    state: 'open',
+                    svc: 'http',
+                    version: 'nginx 1.18.0',
+                    web: {
+                      '/': '<h1>files.lab</h1><p>internal file drop</p><!-- build 41, deploy-key SARVAM{comments_ship_to_production} -->',
+                      '/robots.txt': 'User-agent: *\nDisallow: /backup\n',
+                      '/backup': '<h1>index of /backup</h1><a href="db-2026-11-04.sql">db-2026-11-04.sql</a>\n<!-- SARVAM{robots_is_a_map} -->'
+                    }
+                  }
+                ]
+              },
+              { ip: '10.10.14.9', name: 'db.lab', ports: [{ port: 3306, state: 'open', svc: 'mysql', version: 'MySQL 8.0.35' }] }
+            ]
+          },
+          tasks: [
             {
-              q: 'Correct order of a TCP connection opening?',
-              options: ['SYN, SYN-ACK, ACK', 'SYN, ACK, SYN-ACK', 'ACK, SYN, ACK', 'SYN, SYN, ACK'],
-              answer: 0,
-              explain: 'Client SYN, server SYN-ACK, client ACK. Three packets, hence three-way.'
+              id: 't1',
+              prompt: 'Which server and version answers on port 8080 of 10.10.14.5? Submit the version string only.',
+              hint: 'nmap -sV 10.10.14.5',
+              answer: 'nginx 1.18.0'
             },
             {
-              q: 'Which service usually listens on 445?',
-              options: ['SMB', 'SSH', 'RDP', 'MySQL'],
-              answer: 0,
-              explain: '445 is SMB, one of the most attacked services in Windows environments.'
+              id: 't2',
+              prompt: 'The homepage leaks a deploy key in a comment. Submit it.',
+              hint: 'curl http://10.10.14.5:8080/ then look at the HTML comment.',
+              answer: 'SARVAM{comments_ship_to_production}'
             },
             {
-              q: 'A port scan gets no response at all from a port. What is most likely?',
-              options: ['Port is closed', 'A firewall is dropping packets', 'Service is running', 'The host is up but busy'],
-              answer: 1,
-              explain: 'Closed ports answer with RST. Silence usually means a filter drops the probe.'
-            },
-            {
-              q: 'Why is UDP preferred for DNS queries?',
-              options: ['It is encrypted', 'It has no handshake overhead for tiny request/response pairs', 'It guarantees delivery', 'It is more secure by design'],
-              answer: 1,
-              explain: 'One small question and answer does not justify a handshake. DNS falls back to TCP for large answers.'
+              id: 't3',
+              prompt: 'robots.txt points somewhere. Fetch that path and submit the flag it exposes.',
+              hint: 'curl http://10.10.14.5:8080/robots.txt, then curl the path it disallows.',
+              answer: 'SARVAM{robots_is_a_map}'
             }
           ]
         },
@@ -616,7 +818,7 @@ community strings), DHCP on 67/68, and VPNs. A TCP-only scan leaves blind spots.
         title: 'HTTP, cookies and DevTools',
         sub: 'Where most real-world attacks actually live',
         minutes: 15,
-        labType: 'quiz',
+        labType: 'web',
         concept: `
 <h2>HTTP is a request and a response, in plain text</h2>
 <pre><code>GET /account?id=42 HTTP/1.1
@@ -647,31 +849,49 @@ proxy later.</p>
 cookie, <code>Secure</code> keeps it off plain HTTP, <code>SameSite</code> limits cross-site sending.
 Missing flags are real findings, not trivia.</div>
 `,
-        quiz: {
-          questions: [
+        lab: {
+          startCwd: '/home/student',
+          intro: 'Nimbus is running in the panel above. Three bugs, three flags. The address bar inside the app is real.',
+          app: {
+            appTitle: 'Nimbus',
+            baseUrl: 'http://notes.lab:8080',
+            host: 'notes.lab:8080',
+            session: { user: 'lowell', plan: 'free', key: 'SARVAM{xss_runs_in_my_browser}' },
+            notes: [
+              { id: 1, title: 'Shopping', author: 'lowell', visibility: 'private', body: 'oat milk, coffee, a new keyboard' },
+              { id: 2, title: 'Sprint notes', author: 'maya', visibility: 'private', body: 'move uploads to the new bucket, rotate the api token' },
+              {
+                id: 9,
+                title: 'Admin backup codes',
+                author: 'admin',
+                visibility: 'private',
+                body: 'one-time codes for the console: SARVAM{idor_is_not_a_feature}'
+              }
+            ],
+            files: {
+              'readme.txt': 'Nimbus file store. Only exported files live in this directory.',
+              'app.txt': 'version 4.1.2'
+            },
+            privateFile: 'backup-2026-11-04.txt\nDB_PASSWORD=not-for-you\nSARVAM{traversal_reads_anything}'
+          },
+          tasks: [
             {
-              q: "You change ?id=42 to ?id=43 in a URL and see another account's data. What is this?",
-              options: ['SQL injection', 'IDOR / broken access control', 'XSS', 'CSRF'],
-              answer: 1,
-              explain: 'The app trusts a client-supplied identifier without an ownership check. That is broken access control, and it is OWASP number one.'
+              id: 't1',
+              prompt: 'Your note is id 1. The admin has one too. Read it and submit the code inside.',
+              hint: 'The page trusts the id in the URL: /note?id=9, or /api/note?id=9 for the raw JSON. That trust is the bug.',
+              answer: 'SARVAM{idor_is_not_a_feature}'
             },
             {
-              q: 'What does a Set-Cookie flag of HttpOnly prevent?',
-              options: ['Cookie theft by JavaScript (and therefore many XSS session thefts)', 'Cookie theft over the network', 'Cross-site requests', 'Cookie expiry'],
-              answer: 0,
-              explain: 'HttpOnly hides the cookie from document.cookie, so script injected into a page cannot read it.'
+              id: 't2',
+              prompt: 'The download endpoint serves readme.txt. Make it serve the private backup file and submit its flag.',
+              hint: 'The file parameter is joined to a directory without cleaning the path: /download?file=../private/backup-2026-11-04.txt',
+              answer: 'SARVAM{traversal_reads_anything}'
             },
             {
-              q: 'Which status code means you are authenticated but not permitted?',
-              options: ['401', '403', '404', '302'],
-              answer: 1,
-              explain: '401 is a missing or bad credential. 403 means the server knows who you are and refuses.'
-            },
-            {
-              q: 'A 500 error on a crafted input is useful to an attacker because:',
-              options: ['It proves the site is down', 'It often leaks stack traces and confirms the input reached unsafe code', 'It means authentication is off', 'It caches the response'],
-              answer: 1,
-              explain: 'Errors reveal paths, versions and query fragments, and confirm the input is being processed unsafely.'
+              id: 't3',
+              prompt: 'Feedback reflects your input. Get JavaScript to run and submit the session key it can reach.',
+              hint: 'Script tags written with innerHTML never execute, event handlers do. Try: <img src=x onerror="document.body.innerText=window.__adminSession.key">',
+              answer: 'SARVAM{xss_runs_in_my_browser}'
             }
           ]
         },

@@ -4,6 +4,8 @@
  * and answers everything else with "command not found".
  */
 
+import { ipcalc as ipcalcText, parseCidr, md5, b64encode, b64decode, httpRequest, ipToInt, intToIp } from './netproto.js';
+
 const USER = 'student';
 const HOST = 'web01';
 
@@ -13,7 +15,11 @@ const HELP = `Commands in this lab:
   find <path> [-name P] [-type f|d] [-perm -4000]
   wc -l [file]  file <file>  chmod <mode> <file>  chown <user> <file>
   cut -d <char> -f <n>  sort [-n] [-r]  uniq [-c]
-  id  whoami  ps  sudo [-l|<cmd>]  echo  clear  man <cmd>  exit
+  nmap [-sn|-sV] <ip|cidr>  ping  ip a  ipcalc <addr/prefix>  curl [-i] <url>
+  dirb <url>  base64 [-d]  md5sum  xxd  strings  tr  id  whoami  sudo [-l]  man <cmd>
+  ipcalc <addr/prefix>  ip a  ping [-c N] <host>  nmap [-sn|-sV] [-p P] <target>
+  curl [-i] <url>  ssh <user@host>
+  base64 [-d] [file]  md5sum <file>  xxd <file>  strings <file>  tr <from> <to>
 
 Pipes work: grep 'Failed password' auth.log | cut -d' ' -f11 | sort | uniq -c
 Anything else: command not found. This box is intentionally limited.`;
@@ -27,6 +33,11 @@ const MAN = {
   chmod: 'chmod <octal> <file>: change permissions. 4 read, 2 write, 1 execute.',
   sudo: 'sudo <cmd>: root if /etc/sudoers allows. sudo -l lists your rights.',
   cut: "cut -d' ' -f11: pull one field out of each line.",
+  dirb: 'dirb <url>: content discovery. Lines starting with + are pages that exist.',
+  nmap: 'nmap [-sn|-sV] <target>: host discovery and service versions.',
+  curl: 'curl [-i] <url>: fetch a page; -i also prints the response headers.',
+  ipcalc: 'ipcalc <addr/prefix>: network, mask, broadcast and usable hosts.',
+  base64: 'base64 [-d]: encode or decode. -d decodes.',
   sort: 'sort [-n] [-r]: sort lines, numerically or reversed.',
   uniq: 'uniq -c: collapse repeats and count them.',
   ps: 'ps: running processes.',
@@ -80,7 +91,7 @@ function stripQuotes(s) {
   return s.replace(/^['"]|['"]$/g, '');
 }
 
-export function createShell(srcFs, startCwd = '/home/student') {
+export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
   let fs = clone(srcFs);
   let cwd = normalizePath(startCwd);
   const history = [];
@@ -422,6 +433,307 @@ export function createShell(srcFs, startCwd = '/home/student') {
         );
       }
       return fail(`Sorry, user student is not allowed to execute '${args.join(' ')}' as root on ${HOST}.`);
+    },
+
+    hostname: () => ok(HOST),
+    uname: (args) =>
+      ok(
+        args.includes('-a')
+          ? `Linux ${HOST} 5.15.0-91-generic #101-Ubuntu SMP Tue Nov 21 21:24:12 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux`
+          : 'Linux'
+      ),
+
+    ip(args) {
+      if (args[0] !== 'a' && args[0] !== 'addr' && args[0] !== 'address') {
+        return ok(`Usage: ip [ OPTIONS ] OBJECT\n  a, addr    address management`);
+      }
+      const net = opts.net;
+      if (!net) {
+        return ok('1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536\n    inet 127.0.0.1/8 scope host lo\n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500\n    inet 10.10.14.23/24 brd 10.10.14.255 scope global eth0');
+      }
+      const cidr = parseCidr(`${net.myIp}/${net.prefix}`);
+      return ok(
+        [
+          '1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN',
+          '    inet 127.0.0.1/8 scope host lo',
+          '2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP',
+          `    inet ${net.myIp}/${net.prefix} brd ${cidr.broadcastIp} scope global eth0`,
+          `    link/ether 02:42:0a:0a:0e:17 brd ff:ff:ff:ff:ff:ff`,
+          `default via ${net.gateway} dev eth0`
+        ].join('\n')
+      );
+    },
+
+    ifconfig() {
+      const net = opts.net;
+      const mine = net ? `${net.myIp}/24` : '10.10.14.23/24';
+      return ok(`eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500\n        inet ${mine}  netmask 255.255.255.0  broadcast 10.10.14.255`);
+    },
+
+    /* web content discovery: walks the lab's wordlist, not the real internet */
+    dirb(args) {
+      const target = (args.find((a) => !a.startsWith('-')) || '').replace(/\/$/, '');
+      const spec = opts.dirb;
+      if (!target) return fail('dirb: usage: dirb <url>   e.g. dirb http://fakebank.lab');
+      const path = target.replace(/^https?:\/\//, '').split('/')[0];
+      const now = new Date();
+      const stamp = now.toUTCString().replace('GMT', 'GMT');
+      if (!spec || path !== spec.host) {
+        return ok(
+          '----------------\nDIRB v2.22\nBy The Dark Raver\n----------------\n\n' +
+            `START_TIME: ${stamp}\nURL_BASE: ${target}/\nWORDLIST_FILES: /usr/share/dirb/wordlists/common.txt\n\n` +
+            '----------------\n\nGENERATED WORDS: 4612\n\n' +
+            `---- Scanning URL: ${target}/ ----\n\n` +
+            '==> DIRECTORY: ' + target + '/images/\n\n' +
+            '----------------\n' + `END_TIME: ${stamp}\nDOWNLOADED: 4612 - FOUND: 1\n`
+        );
+      }
+      const lines = spec.paths
+        .map((r) => `+ ${target}${r.path} (CODE:${r.code}|SIZE:${r.size})`)
+        .join('\n');
+      return ok(
+        '----------------\nDIRB v2.22\nBy The Dark Raver\n----------------\n\n' +
+          `START_TIME: ${stamp}\nURL_BASE: ${target}/\nWORDLIST_FILES: /usr/share/dirb/wordlists/common.txt\n\n` +
+          '----------------\n\nGENERATED WORDS: 4612\n\n' +
+          `---- Scanning URL: ${target}/ ----\n${lines}\n\n` +
+          '----------------\n' +
+          `END_TIME: ${stamp}\nDOWNLOADED: 4612 - FOUND: ${spec.paths.length}\n`
+      );
+    },
+
+    ipcalc(args) {
+      if (!args[0]) return fail('usage: ipcalc <address>/<prefix>');
+      const out = ipcalcText(args[0]);
+      return out.startsWith('invalid') ? fail(out) : ok(out);
+    },
+
+    ping(args) {
+      const net = opts.net;
+      let count = 4;
+      let target = null;
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '-c') count = Math.max(Number(args[++i]) || 1, 1);
+        else if (!args[i].startsWith('-')) target = args[i];
+      }
+      if (!target) return fail('ping: usage: ping [-c N] <host>');
+      const hosts = (net && net.hosts) || [];
+      const hit = hosts.find((h) => h.ip === target || h.name === target);
+      const self = net && (target === net.myIp || target === 'localhost' || target === '127.0.0.1');
+      const ip = self ? net.myIp : hit ? hit.ip : target;
+      if (!self && !hit) {
+        return fail(`ping: ${target}: Name or service not known` );
+      }
+      const lines = [`PING ${target} (${ip}) 56(84) bytes of data.`];
+      for (let i = 1; i <= count; i++) {
+        lines.push(`64 bytes from ${ip}: icmp_seq=${i} ttl=64 time=${(0.28 + i * 0.07).toFixed(3)} ms`);
+      }
+      lines.push('');
+      lines.push(`--- ${target} ping statistics ---`);
+      lines.push(`${count} packets transmitted, ${count} received, 0% packet loss, time ${count * 1000}ms`);
+      return ok(lines.join('\n'));
+    },
+
+    nmap(args) {
+      const net = opts.net;
+      if (!net) return fail('nmap: no network in this lab. This lesson is about the local filesystem.');
+      const sweep = args.includes('-sn');
+      const serviceScan = args.includes('-sV');
+      let targets = args.filter((a) => !a.startsWith('-'));
+      if (!targets.length) return fail('nmap: usage: nmap [-sn] [-sV] [-p 22,80] <ip|cidr>');
+      if (args.includes('-p')) {
+        const i = args.indexOf('-p');
+        targets = targets.filter((a) => a !== args[i + 1]);
+      }
+      const target = targets[0];
+      const out = [`Starting Nmap 7.94 ( https://nmap.org ) at ${new Date().toUTCString()}`];
+
+      if (sweep) {
+        const range = parseCidr(target);
+        if (range.error) return fail(`nmap: ${range.error}`);
+        const alive = net.hosts.filter((h) => (ipToInt(h.ip) & range.mask) >>> 0 === range.network);
+        for (const h of alive) {
+          out.push(`Nmap scan report for ${h.name} (${h.ip})`, 'Host is up (0.00055s latency).');
+        }
+        const total = Math.min(range.count, 256);
+        out.push('');
+        out.push(`Nmap done: ${total} IP addresses (${alive.length} host${alive.length === 1 ? '' : 's'} up) scanned in ${(1.2 + alive.length * 0.4).toFixed(2)} seconds`);
+        return ok(out.join('\n'));
+      }
+
+      const host = net.hosts.find((h) => h.ip === target || h.name === target);
+      if (!host) {
+        out.push(`Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn`);
+        out.push('Nmap done: 1 IP address (0 hosts up) scanned in 3.01 seconds');
+        return ok(out.join('\n'));
+      }
+      out.push(`Nmap scan report for ${host.name} (${host.ip})`);
+      out.push('Host is up (0.00048s latency).');
+      out.push('Not shown: 997 filtered tcp ports (no-response)');
+      out.push('');
+      out.push('PORT     STATE SERVICE' + (serviceScan ? ' VERSION' : ''));
+      for (const p of host.ports || []) {
+        const head = `${String(p.port).padEnd(8)} ${p.state.padEnd(5)} ${(p.svc || '?').padEnd(7)}`;
+        out.push(serviceScan ? head + ' ' + (p.version || '') : head);
+      }
+      if (serviceScan) {
+        out.push('');
+        out.push(`Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .`);
+      }
+      out.push(`Nmap done: 1 IP address (1 host up) scanned in ${(2.1 + (host.ports || []).length * 0.6).toFixed(2)} seconds`);
+      return ok(out.join('\n'));
+    },
+
+    curl(args) {
+      const net = opts.net;
+      if (!net) return fail('curl: no network in this lab.');
+      const showHeaders = args.includes('-i');
+      const url = args.filter((a) => !a.startsWith('-'))[0];
+      if (!url) return fail('curl: try \'curl http://host:port/\'');
+      const hosts = net.hosts || [];
+      let hostArg = url;
+      const m = url.match(/^https?:\/\/([^/:]+)(?::(\d+))?/);
+      if (m) {
+        const named = hosts.find((h) => h.ip === m[1] || h.name === m[1]);
+        if (named) hostArg = url.replace(m[1], named.ip);
+      }
+      const target = hosts.find((h) => hostArg.includes(h.ip));
+      if (!target) return fail(`curl: (6) Could not resolve host: ${url}`);
+      const res = httpRequest(target, hostArg);
+      if (res.error) return fail(res.error);
+      const head = [
+        `HTTP/1.1 ${res.status}`,
+        ...Object.entries(res.headers || {}).map(([k, v]) => `${k}: ${v}`),
+        ''
+      ].join('\n');
+      return ok(showHeaders ? head + '\n' + res.body : res.body);
+    },
+
+    wget(args) {
+      return commands.curl(args.filter((a) => a !== '-q' && a !== '-O'));
+    },
+
+    ssh(args) {
+      const net = opts.net;
+      if (!args[0]) return fail('usage: ssh user@host');
+      const hostPart = args[0].split('@').pop();
+      const host = ((net && net.hosts) || []).find((h) => h.ip === hostPart || h.name === hostPart);
+      if (!host) return fail(`ssh: Could not resolve hostname ${hostPart}: Name or service not known`);
+      const open = (host.ports || []).some((p) => p.port === 22 && p.state === 'open');
+      if (!open) return fail(`ssh: connect to host ${hostPart} port 22: Connection refused`);
+      return fail('student@' + hostPart + ': Permission denied (publickey,password).');
+    },
+
+    base64(args, stdin) {
+      const decode = args.includes('-d') || args.includes('--decode');
+      const rest = args.filter((a) => a !== '-d' && a !== '--decode');
+      let source = null;
+      if (rest.length) {
+        const res = readFile(rest[0]);
+        if (res.error) return fail(res.error);
+        source = res.text;
+      } else if (stdin != null) {
+        source = String(stdin);
+      } else {
+        return fail('usage: base64 [-d] <file>   or   echo hello | base64');
+      }
+      try {
+        return ok(decode ? b64decode(source) : b64encode(source.replace(/\n$/, '')));
+      } catch (e) {
+        return fail('base64: invalid input');
+      }
+    },
+
+    md5sum(args, stdin) {
+      const rest = args.filter((a) => !a.startsWith('-'));
+      let source;
+      let label;
+      if (rest.length) {
+        const res = readFile(rest[0]);
+        if (res.error) return fail(res.error);
+        source = res.text;
+        label = rest[0];
+      } else if (stdin != null) {
+        source = String(stdin).replace(/\n$/, '');
+        label = '-';
+      } else {
+        return fail('usage: md5sum <file>   or   echo -n hello | md5sum');
+      }
+      return ok(`${md5(source.replace(/\n$/, ''))}  ${label}`);
+    },
+
+    xxd(args, stdin) {
+      const rest = args.filter((a) => !a.startsWith('-'));
+      let source;
+      if (rest.length) {
+        const res = readFile(rest[0]);
+        if (res.error) return fail(res.error);
+        source = res.text;
+      } else if (stdin != null) {
+        source = String(stdin);
+      } else {
+        return fail('usage: xxd <file>');
+      }
+      const bytes = source.replace(/\n$/, '');
+      const lines = [];
+      for (let i = 0; i < bytes.length; i += 16) {
+        const chunk = bytes.slice(i, i + 16);
+        const hex = [...chunk]
+          .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+          .join(' ')
+          .padEnd(48, ' ');
+        const ascii = [...chunk].map((c) => (c.charCodeAt(0) >= 32 && c.charCodeAt(0) < 127 ? c : '.')).join('');
+        lines.push(`${i.toString(16).padStart(8, '0')}: ${hex}  ${ascii}`);
+      }
+      return ok(lines.join('\n'));
+    },
+
+    strings(args, stdin) {
+      const rest = args.filter((a) => !a.startsWith('-'));
+      let source;
+      if (rest.length) {
+        const res = readFile(rest[0]);
+        if (res.error) return fail(res.error);
+        source = res.text;
+      } else if (stdin != null) {
+        source = String(stdin);
+      } else {
+        return fail('usage: strings <file>');
+      }
+      const found = source.match(/[\x20-\x7e]{4,}/g) || [];
+      return ok(found.join('\n'));
+    },
+
+    tr(args, piped) {
+      let from = args[0] || '';
+      let to = args[1] || '';
+      const del = args.includes('-d');
+      const source = piped != null ? String(piped) : '';
+      if (!source) return fail('usage: cat file | tr a-z A-Z');
+      const expand = (spec) => {
+        const out = [];
+        for (let i = 0; i < spec.length; i++) {
+          if (spec[i + 1] === '-' && spec[i + 2]) {
+            const start = spec.charCodeAt(i);
+            const end = spec.charCodeAt(i + 2);
+            for (let c = start; c <= end; c++) out.push(String.fromCharCode(c));
+            i += 2;
+          } else out.push(spec[i]);
+        }
+        return out;
+      };
+      const fromSet = expand(from);
+      const toSet = expand(to);
+      if (del) {
+        return ok([...source].filter((ch) => !fromSet.includes(ch)).join(''));
+      }
+      return ok(
+        [...source]
+          .map((ch) => {
+            const i = fromSet.indexOf(ch);
+            return i >= 0 && i < toSet.length ? toSet[i] : ch;
+          })
+          .join('')
+      );
     }
   };
 
@@ -508,6 +820,7 @@ export function createShell(srcFs, startCwd = '/home/student') {
 
   return {
     run,
+    net: () => opts.net || null,
     prompt: () => `${USER}@${HOST}:${cwd}$`,
     cwd: () => cwd,
     history: () => history.slice(),

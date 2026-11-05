@@ -1,0 +1,54 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>bank-test</title></head>
+<body>
+<iframe id="lab" style="width:900px;height:600px;border:0"></iframe>
+<div id="result">running</div>
+<script type="module">
+import { buildApp } from '../js/weblab.js';
+import { lessonById } from '../js/data/curriculum.js';
+
+const spec = lessonById('bonus-bank').lab.app;
+const frame = document.getElementById('lab');
+const out = document.getElementById('result');
+const results = [];
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const doc = () => frame.contentDocument;
+const text = () => doc().body.innerText;
+
+async function boot() {
+  await new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = buildApp(spec); });
+  await wait(150);
+}
+
+async function main() {
+  await boot();
+  results.push(['bank home renders', text().includes('MERIDIAN BANK')]);
+  results.push(['account number shown', text().includes('8881')]);
+  results.push(['balance is negative', text().includes('-$1,232.32') || text().includes('-1232.32')]);
+
+  frame.contentWindow.location.hash = '#/bank-transfer';
+  await wait(200);
+  const sel = doc().getElementById('acct');
+  const amt = doc().getElementById('amt');
+  results.push(['admin form has no login', Boolean(sel && amt)]);
+  results.push(['drop-down lists accounts', (sel?.innerHTML || '').includes('1234')]);
+
+  sel.value = '8881';
+  amt.value = '2000';
+  doc().getElementById('dep').click();
+  await wait(150);
+  results.push(['deposit modal appears', (doc().body.innerText || '').includes('Deposit completed')]);
+
+  doc().querySelector('.modal #back').click();
+  await wait(200);
+  results.push(['flag revealed after deposit', text().includes('SARVAM{bank_hacked}')]);
+  results.push(['back on the bank home page', frame.contentWindow.location.hash === '#/']);
+
+  const failed = results.filter((r) => !r[1]);
+  out.textContent = (failed.length ? 'FAIL ' + JSON.stringify(failed) : 'PASS') + ' :: ' + results.map((r) => r[0]).join(' | ');
+  document.title = failed.length ? 'FAIL' : 'PASS';
+}
+
+main().catch((e) => { out.textContent = 'THROW ' + e.message; document.title = 'FAIL'; });
+</script>
+</body></html>
