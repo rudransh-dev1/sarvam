@@ -1,4 +1,6 @@
 import { CURRICULUM, LESSONS, lessonById, lessonIndex, TOTAL_LESSONS } from './data/curriculum.js';
+import { WEEKS } from './data/roadmap.js';
+import { weekQuestDays } from './data/quests.js';
 import { RES, MINDMAPS } from './data/roadmap.js';
 import * as P from './progress.js';
 import { createShell } from './terminal.js';
@@ -672,6 +674,87 @@ function renderLesson(id, tab) {
   updateChrome();
 }
 
+/* ---------------- today's quest board ---------------- */
+
+function renderToday(pickDay) {
+  const clock = P.questClock();
+  const week = WEEKS[Math.min(clock.weekIndex, WEEKS.length - 1)];
+  const days = weekQuestDays(week);
+  const dayNo = Math.max(1, Math.min(pickDay || clock.dayInWeek, days.length));
+  const quests = days[dayNo - 1];
+  const done = P.questDayDone(quests);
+  const pct = Math.round((done / quests.length) * 100);
+  const ahead = clock.weekIndex > WEEKS.length - 1;
+
+  const rows = quests
+    .map((q, i) => {
+      const on = P.questDone(q.id);
+      const link = q.href
+        ? `<a class="quest-go" href="${q.href}"${q.external ? ' target="_blank" rel="noopener"' : ''}>${q.external ? 'open' : 'go'} →</a>`
+        : '';
+      return `<div class="quest ${on ? 'done' : ''}" data-quest="${q.id}" data-xp="${q.xp}">
+        <button class="quest-tick" data-act="tick-quest" aria-label="toggle quest">${on ? '✓' : i + 1}</button>
+        <div class="quest-body">
+          <div class="quest-title">${esc(q.title)}</div>
+          <div class="quest-detail">${esc(q.detail)}</div>
+        </div>
+        <span class="quest-kind k-${q.kind}">${q.kind}</span>
+        ${link}
+      </div>`;
+    })
+    .join('');
+
+  const dayTabs = days
+    .map(
+      (d, i) =>
+        `<a class="day-tab ${i + 1 === dayNo ? 'on' : ''}" href="#/today/${i + 1}">Day ${i + 1} <span>${P.questDayDone(d)}/${d.length}</span></a>`
+    )
+    .join('');
+
+  app.innerHTML = `
+    <div class="page-head">
+      <h1>Today</h1>
+      <p>Four quests a day, six days a week. Week ${week.week} · ${esc(week.title)}.${ahead ? ' Roadmap finished, keep your streak alive with side quests and review.' : ''}</p>
+    </div>
+    <div class="today-wrap">
+      <div class="card today-card">
+        <div class="card-head">
+          <h3>Day ${dayNo} of 6 · week ${week.week}</h3>
+          <span class="mono">${done}/${quests.length} done</span>
+        </div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="quests">${rows}</div>
+        <div class="quest-foot">
+          <a class="ghost" href="#/lesson/${week.id}">Open week ${week.week}</a>
+          <button data-act="next-day" class="primary">${done === quests.length ? 'Next day →' : 'Mark the rest later'}</button>
+        </div>
+      </div>
+      <div class="today-side">
+        <div class="card">
+          <div class="card-head"><h3>This week</h3></div>
+          <div class="day-tabs">${dayTabs}</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Daily habit</h3></div>
+          <p class="quest-detail">Every day ends with one of: clear your review cards, commit your work, or explain a concept out loud. The fourth quest rotates through these on purpose.</p>
+          <a class="ghost" href="#/review">Review now →</a>
+        </div>
+      </div>
+    </div>`;
+
+  app.querySelectorAll('[data-act="tick-quest"]').forEach((btn) =>
+    btn.addEventListener('click', (e) => {
+      const row = e.currentTarget.closest('.quest');
+      const on = P.toggleQuest(row.dataset.quest, Number(row.dataset.xp));
+      row.classList.toggle('done', on);
+      updateChrome();
+      renderToday(dayNo);
+    })
+  );
+  const next = app.querySelector('[data-act="next-day"]');
+  if (next) next.addEventListener('click', () => renderToday(dayNo === days.length ? 1 : dayNo + 1));
+}
+
 /* ---------------- review ---------------- */
 
 function renderReview() {
@@ -856,7 +939,9 @@ function route() {
   P.touchDay();
   const hash = location.hash || '#/';
   const m = hash.match(/^#\/lesson\/([\w-]+)/);
+  const t = hash.match(/^#\/today(?:\/(\d+))?/);
   if (m) renderLesson(m[1]);
+  else if (t) renderToday(t[1] ? Number(t[1]) : null);
   else if (hash.startsWith('#/review')) renderReview();
   else if (hash.startsWith('#/progress')) renderProgress();
   else if (hash.startsWith('#/about')) renderAbout();

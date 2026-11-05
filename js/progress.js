@@ -23,6 +23,7 @@ function fresh() {
     cards: [],
     history: [],
     missions: {},
+    quests: {},
     badges: []
   };
 }
@@ -225,6 +226,37 @@ export function toggleMission(lessonId, missionId) {
   state.xp = Math.max(0, state.xp + (row[missionId] ? 10 : -10));
   save();
   return row[missionId];
+}
+
+
+/* ---------- daily quests ---------- */
+
+/** Which week and day the student is on: one study day per calendar day since day one. */
+export function questClock(daysPerWeek = 6) {
+  const [y, m, d] = (state.created || today()).split('-').map(Number);
+  const start = Date.UTC(y, m - 1, d);
+  const now = new Date();
+  const nowUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const elapsed = Math.max(0, Math.round((nowUtc - start) / DAY));
+  const weekIndex = Math.floor(elapsed / daysPerWeek);
+  const dayInWeek = (elapsed % daysPerWeek) + 1;
+  return { elapsed, weekIndex, dayInWeek };
+}
+
+export function questDone(questId) {
+  return Boolean(state.quests?.[questId]);
+}
+
+export function toggleQuest(questId, xp = 10) {
+  state.quests = state.quests || {};
+  state.quests[questId] = !state.quests[questId];
+  state.xp = Math.max(0, state.xp + (state.quests[questId] ? xp : -xp));
+  save();
+  return state.quests[questId];
+}
+
+export function questDayDone(quests) {
+  return quests.filter((q) => questDone(q.id)).length;
 }
 
 /* ---------- ranks and badges ---------- */

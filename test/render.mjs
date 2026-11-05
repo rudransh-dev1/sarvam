@@ -208,6 +208,24 @@ await go('#/');
 check('map reflects cleared levels', $$('.level.done').length === 3, `done ${$$('.level.done').length}`);
 check('week 4 is now the open level', $$('.level.open .level-week').length && $('.level.open .level-week').textContent === 'WEEK 4', $('.level.open .level-week')?.textContent);
 
+/* ---------- today's quest board ---------- */
+
+await go('#/today');
+check('today renders four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
+check('today names the week', $('#app').innerHTML.includes('week 1'), $('#app').innerHTML.slice(0, 80));
+check('today shows day tabs', $$('.day-tab').length === 6, `got ${$$('.day-tab').length}`);
+
+const xpBefore = state().xp;
+$('.quest [data-act="tick-quest"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await wait(20);
+check('ticking a quest awards xp', state().xp === xpBefore + 10, `${xpBefore} -> ${state().xp}`);
+check('quest tick is stored', Object.values(state().quests || {}).some(Boolean), JSON.stringify(state().quests));
+check('quest row shows done', $$('.quest.done').length === 1, `done ${$$('.quest.done').length}`);
+
+await go('#/today/3');
+check('day tabs open another day', $('#app').innerHTML.includes('Day 3 of 6'), $('#app').innerHTML.slice(0, 90));
+
+
 console.log(`\n${pass} render checks passed, ${fails.length} failed`);
 if (fails.length) {
   console.log('\nfailures:');

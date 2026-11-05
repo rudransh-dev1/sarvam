@@ -835,3 +835,49 @@ table.mini th { color: var(--faint); font-size: 12px; letter-spacing: 0.1em; tex
   .rankbar { grid-template-columns: 1fr; gap: 8px; }
   .levels { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------- today board ------------------------------- */
+.today-wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.today-card .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.quests { margin: 14px 0 4px; display: grid; gap: 10px; }
+.quest {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(18, 27, 43, 0.5);
+}
+.quest.done { border-color: rgba(79, 227, 171, 0.34); background: rgba(79, 227, 171, 0.07); }
+.quest.done .quest-title { color: var(--muted); text-decoration: line-through; }
+.quest-tick {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--line-strong);
+  color: var(--muted); font-family: var(--mono); font-size: 13px;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+.quest.done .quest-tick { background: var(--mint); border-color: var(--mint); color: #04140d; }
+.quest-title { font-size: 15.4px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.quest-detail { font-size: 13.4px; color: var(--muted); margin-top: 2px; }
+.quest-kind {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--faint);
+}
+.quest-kind.k-lab, .quest-kind.k-boss { color: var(--mint); border-color: rgba(79, 227, 171, 0.35); }
+.quest-kind.k-study { color: var(--sky); border-color: rgba(134, 211, 255, 0.3); }
+.quest-kind.k-proof { color: var(--lav); border-color: rgba(169, 155, 255, 0.32); }
+.quest-go { font-family: var(--mono); font-size: 12px; color: var(--mint); }
+.quest-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.today-side { display: grid; gap: 16px; }
+.day-tabs { display: grid; gap: 6px; margin-top: 10px; }
+.day-tab {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid transparent;
+  color: var(--muted); font-size: 14px;
+}
+.day-tab span { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+.day-tab:hover { background: rgba(169, 155, 255, 0.08); color: var(--text); }
+.day-tab.on { border-color: rgba(79, 227, 171, 0.3); background: rgba(79, 227, 171, 0.08); color: var(--text); }
+@media (max-width: 900px) { .today-wrap { grid-template-columns: 1fr; } }

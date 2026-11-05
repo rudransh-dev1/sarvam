@@ -174,6 +174,27 @@ for (const w of WEEKS) {
   }
 }
 
+
+/* ---------- daily quest board ---------- */
+
+const { weekQuestDays, DAYS_PER_WEEK, QUESTS_PER_DAY } = await import('../js/data/quests.js');
+
+for (const week of WEEKS) {
+  const days = weekQuestDays(week);
+  check(`${week.id}: six days of quests`, days.length === DAYS_PER_WEEK, `got ${days.length}`);
+  const ids = new Set();
+  days.forEach((day, i) => {
+    check(`${week.id} day ${i + 1}: exactly ${QUESTS_PER_DAY} quests`, day.length === QUESTS_PER_DAY, `got ${day.length}`);
+    day.forEach((q) => {
+      check(`${week.id} ${q.id}: has title`, Boolean(q.title && q.title.length > 4), q.title);
+      check(`${week.id} ${q.id}: unique id`, !ids.has(q.id));
+      ids.add(q.id);
+    });
+    check(`${week.id} day ${i + 1}: has a habit quest`, day.some((q) => ['review', 'proof', 'write'].includes(q.kind)));
+    check(`${week.id} day ${i + 1}: has hands-on work`, day.some((q) => ['lab', 'boss', 'side'].includes(q.kind)));
+  });
+}
+
 console.log(`\n${pass} roadmap checks passed, ${fails.length} failed`);
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('roadmap ok');
