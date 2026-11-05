@@ -14,12 +14,12 @@ check() { # name, url, needle
   fi
 }
 check "map renders levels"        "#/"            "PHASE 01"
-check "today shows practice"      "#/today"       "Four practice quests"
+check "today shows 24 steps"      "#/today"       "Concept 1"
 check "today shows remaining"     "#/today"       "Remaining"
-check "drills page 1"             "#/drills/1"    "1-10 of 236"
-check "drills page 2"             "#/drills/2"    "11-20 of 236"
+check "drills page 1"             "#/drills/1"    "1-10 of 1386"
+check "drills page 2"             "#/drills/2"    "11-20 of 1386"
 check "remaining page"            "#/remaining/1" "Nothing waiting"
 check "week lab renders"          "#/lesson/w01"  "Boss lab"
-check "drills pager back"          "#/drills/24"  "231-236 of 236"
+check "drills last page"          "#/drills/139" "1381-1386 of 1386"
 echo "$pass browser checks passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

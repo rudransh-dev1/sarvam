@@ -62,7 +62,7 @@ const intToIp = (n) => [24, 16, 8, 0].map((s) => (n >>> s) & 255).join('.');
 function subnetQuests() {
   const rnd = seedRand(20261106);
   const out = [];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 360; i++) {
     const prefix = pick(rnd, [24, 25, 26, 27, 28, 29, 30]);
     const ip = [10, (rnd() * 12 + 1) | 0, (rnd() * 200 + 1) | 0, (rnd() * 200 + 1) | 0].join('.');
     const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
@@ -119,8 +119,8 @@ function encodeQuests() {
   const rnd = seedRand(99117);
   const words = ['gateway', 'payload', 'kernel', 'shatter', 'lockpick', 'beacon', 'cipher', 'rootkit', 'shellcode', 'handshake', 'subnet', 'privkey'];
   const out = [];
-  for (let i = 0; i < 40; i++) {
-    const w = pick(rnd, words) + (i % 7 === 0 ? i : '');
+  for (let i = 0; i < 330; i++) {
+    const w = pick(rnd, words) + i;
     const mode = i % 4;
     if (mode === 0) {
       const enc = toBase64(w);
@@ -177,7 +177,7 @@ const HASHES = [
 function hashQuests() {
   const rnd = seedRand(4242);
   const out = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 300; i++) {
     const target = pick(rnd, HASHES);
     const others = HASHES.filter((h) => h[0] !== target[0]).sort(() => rnd() - 0.5).slice(0, 3);
     const options = [target, ...others].sort(() => rnd() - 0.5);
@@ -201,7 +201,7 @@ function hashQuests() {
 function logQuests() {
   const rnd = seedRand(778899);
   const out = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 300; i++) {
     const attacker = '203.0.113.' + (20 + i);
     const fails = 3 + (i % 6);
     const lines = [];

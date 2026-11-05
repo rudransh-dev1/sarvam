@@ -227,6 +227,29 @@ for (const week of WEEKS) {
   check(`${week.id}: keeps its hands-on shell tasks`, rooms.flatMap((r) => r.tasks).filter((t) => t.kind === 'shell').length >= 1);
 }
 
+
+/* ---------- 24 steps a day, four-step loop per concept ---------- */
+
+const DAY = await import('../js/data/dayroom.js');
+
+check('a day is 24 steps', DAY.STEPS_PER_DAY === 24);
+for (const week of WEEKS) {
+  for (let d = 1; d <= 6; d++) {
+    const steps = DAY.daySteps(week.week, d);
+    check(`${week.id} d${d}: 24 steps`, steps.length === 24, `got ${steps.length}`);
+    check(`${week.id} d${d}: six concept blocks`, new Set(steps.map((s) => s.block)).size === 6);
+    const ids = new Set(steps.map((s) => s.id));
+    check(`${week.id} d${d}: unique step ids`, ids.size === 24, `got ${ids.size}`);
+    for (let b = 1; b <= 6; b++) {
+      const block = steps.filter((s) => s.block === b).map((s) => s.kind);
+      check(`${week.id} d${d} b${b}: read then question then build then game`, block.join(',') === 'concept,question,build,game', block.join(','));
+    }
+    check(`${week.id} d${d}: 18 graded steps`, steps.filter((s) => s.graded).length === 18);
+    check(`${week.id} d${d}: every graded step has an answer`, steps.filter((s) => s.graded).every((s) => s.answer !== undefined && String(s.answer).length));
+    check(`${week.id} d${d}: concepts carry a real explanation`, steps.filter((s) => s.kind === 'concept').every((s) => (s.text || '').length > 20));
+  }
+}
+
 console.log(`\n${pass} roadmap checks passed, ${fails.length} failed`);
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('roadmap ok');

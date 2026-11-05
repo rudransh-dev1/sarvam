@@ -229,29 +229,33 @@ await go('#/');
 check('map reflects cleared levels', $$('.level.done').length === 3, `done ${$$('.level.done').length}`);
 check('week 4 is now the open level', $$('.level.open .level-week').length && $('.level.open .level-week').textContent === 'WEEK 4', $('.level.open .level-week')?.textContent);
 
-/* ---------- today's four practice quests ---------- */
+/* ---------- today: 24 steps in six concept blocks ---------- */
 
 await go('#/today');
-check('today renders four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
-check('quests are drills, not videos', !$('#app').innerHTML.includes('Watch:'), 'still has video quests');
-check('today shows the remaining tray', $('#app').innerHTML.includes('Remaining'));
-check('today shows day tabs', $$('.day-tab').length === 6, `got ${$$('.day-tab').length}`);
+check('today renders 24 steps', $$('.step').length === 24, `got ${$$('.step').length}`);
+check('today has six concept blocks', $$('.block').length === 6, `got ${$$('.block').length}`);
+check('every block has read, question, build and game', [...$$('.block')].every((b) => b.querySelector('.k-read') && b.querySelector('.k-question') && b.querySelector('.k-build') && b.querySelector('.k-game')));
+check('no video quests left', !$('#app').innerHTML.includes('Watch:'), 'still has video quests');
+check('today links to the remaining tray', $('#app').innerHTML.includes('Remaining'));
 
-const firstQuest = $('.quest');
-const firstId = firstQuest.getAttribute('data-quest');
-const rightAnswer = firstQuest.getAttribute('data-answer');
-const xpBefore = state().xp;
-$('.quest-form input').value = 'definitely-wrong';
-$('.quest-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-await wait(20);
-check('a wrong answer is refused', state().xp === xpBefore, `xp ${state().xp}`);
-check('wrong answer shows feedback', $('#app').innerHTML.includes('not it'));
-
-$('.quest-form input').value = rightAnswer;
-$('.quest-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+$('.step-read').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await wait(30);
-check('the right answer scores xp', state().xp === xpBefore + 10, `${xpBefore} -> ${state().xp}`);
-check('solved quest is stored', Boolean(state().quests[firstId]), JSON.stringify(state().quests));
+check('marking a concept read pays xp', state().xp >= 5, `xp ${state().xp}`);
+
+const qForm = $('.step-question .step-form');
+const qCard = qForm.closest('[data-step]');
+const qId = qCard.getAttribute('data-step');
+const before = state().xp;
+qForm.querySelector('input').value = 'definitely-wrong';
+qForm.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+await wait(20);
+check('a wrong answer is refused', state().xp === before, `xp ${state().xp}`);
+
+$('.step-question .step-form input').value = qCard.getAttribute('data-answer');
+$('.step-question .step-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+await wait(40);
+check('the right answer scores xp', state().xp === before + 15, `${before} -> ${state().xp}`);
+check('solved step is stored', Boolean(state().quests[qId]), JSON.stringify(state().quests));
 
 /* ---------- drill bank pagination ---------- */
 
@@ -268,9 +272,8 @@ check('remaining page renders', $('#app').innerHTML.includes('Remaining'));
 /* ---------- quests are optional and roll over on their own ---------- */
 
 await go('#/today');
-check('today always offers four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
 check('quests never gate a level', !$('#app').innerHTML.includes('Complete your quests first'));
-check('quests are clearly optional', /they change tomorrow|never expire/i.test($('#app').textContent), 'no optional wording');
+check('steps are clearly optional', /Nothing gates a week|never expire/i.test($('#app').textContent), 'no optional wording');
 
 
 console.log(`\n${pass} render checks passed, ${fails.length} failed`);

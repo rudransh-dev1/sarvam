@@ -1,6 +1,7 @@
 import { CURRICULUM, LESSONS, lessonById, lessonIndex, TOTAL_LESSONS } from './data/curriculum.js';
 import { WEEKS } from './data/roadmap.js';
-import { todayView, drillsView, remainingView } from './questsview.js';
+import { drillsView } from './questsview.js';
+import { todayView, remainingView } from './dayview.js';
 import { weekRooms } from './data/rooms.js';
 import { RES, MINDMAPS } from './data/roadmap.js';
 import * as P from './progress.js';
