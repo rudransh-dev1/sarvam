@@ -67,9 +67,11 @@ function renderPath() {
         const labTag =
           lesson.labType === 'web'
             ? '<span class="tag lab">web lab</span>'
-            : lesson.labType === 'terminal'
-              ? '<span class="tag lab">terminal lab</span>'
-              : '<span class="tag quiz">check</span>';
+            : lesson.labType === 'os'
+              ? '<span class="tag lab">virtual box</span>'
+              : lesson.labType === 'terminal'
+                ? '<span class="tag lab">terminal lab</span>'
+                : '<span class="tag quiz">check</span>';
         const dot = status === 'done' ? '✓' : status === 'open' ? '▸' : '🔒';
         const href = status === 'locked' ? '#' : '#/lesson/' + lesson.id;
         const clickable = status === 'locked' ? 'locked' : '';
@@ -104,11 +106,19 @@ function renderPath() {
   const pct = P.pctDone();
 
   app.innerHTML = `
-    <div class="page-head">
-      <h1>${pct === 0 ? 'Start at the bottom. Build up.' : pct === 100 ? 'Every lab passed.' : 'Keep going, one lab at a time.'}</h1>
-      <p>Each lesson is a concept and a lab. You cannot open the next one until this one is passed, which is the
-      whole point: no skipping the foundations that make the fun part possible.</p>
-    </div>
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="hero-kicker"><span class="hero-dot"></span>${pct === 0 ? 'zero to cyber, in your browser' : pct === 100 ? 'curriculum complete' : 'in progress · ' + pct + '%'}</span>
+        <h1>${pct === 0 ? 'Learn the machine <em>before</em> you break it.' : pct === 100 ? 'Every lab passed. <em>Keep it warm.</em>' : 'One lab at a time. <em>No skipping.</em>'}</h1>
+        <p>Concept on the left, live lab on the right, a flag box that decides whether you actually understood it.
+        Foundations first: shell, permissions, packets, code. Then the offensive and defensive work.</p>
+        <div class="hero-actions">
+          ${next ? `<a class="hero-cta" href="#/lesson/${next}"><button class="primary">${pct === 0 ? 'Start your first hack' : 'Continue: ' + esc(lessonById(next).title)}</button></a>` : ''}
+          <a href="#/review"><button class="ghost">Review cards (${P.cardStats().due})</button></a>
+        </div>
+      </div>
+      <img class="hero-crest" src="assets/img/crest.jpg" alt="" />
+    </section>
 
     <div class="grid-cards">
       <div class="metric"><div class="num">${pct}%</div><div class="lbl">curriculum passed</div></div>
