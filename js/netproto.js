@@ -260,7 +260,15 @@ export function httpRequest(host, rawUrl) {
   const target = (host.ports || []).find((p) => p.port === port);
   if (!target) return { error: `curl: (7) Failed to connect to ${name} port ${port}: Connection refused` };
   const web = target.web || {};
-  const body = web[path];
+  let body = web[path];
+  if (body === undefined) {
+    const decoded = path.replace(/%27/g, "'").replace(/%20/g, ' ');
+    body = web[decoded];
+    if (body === undefined) {
+      const star = Object.keys(web).find((k) => k.endsWith('*') && (path.startsWith(k.slice(0, -1)) || decoded.startsWith(k.slice(0, -1))));
+      if (star) body = web[star];
+    }
+  }
   if (body === undefined) {
     return {
       status: '404 Not Found',

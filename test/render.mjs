@@ -6,6 +6,10 @@
 
 import { JSDOM } from 'jsdom';
 import fs from 'node:fs';
+import { CURRICULUM, LESSONS } from '../js/data/curriculum.js';
+
+const TOTAL = LESSONS.length;
+const PHASES = CURRICULUM.length;
 
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const dom = new JSDOM(html, { url: 'https://sarvam.test/#/', pretendToBeVisual: true });
@@ -45,9 +49,9 @@ const appHtml = $('#app').innerHTML;
 check('map renders', appHtml.includes('PHASE 00'), appHtml.slice(0, 80));
 check('map shows all phases', ['PHASE 00', 'PHASE 01', 'PHASE 02', 'PHASE 03'].every((p) => appHtml.includes(p)));
 check('bonus room is listed', appHtml.includes('Your first hack'));
-check('lesson rows rendered', $$('.lesson-row').length === 9, `got ${$$('.lesson-row').length}`);
-check('gating active: bonus and first lesson open', $$('.lesson-row.locked').length === 7, `locked ${$$('.lesson-row.locked').length}`);
-check('stat chrome painted', $('#stat-done').textContent === '0/9', $('#stat-done').textContent);
+check('lesson rows rendered', $$('.lesson-row').length === TOTAL, `got ${$$('.lesson-row').length} of ${TOTAL}`);
+check('gating active: bonus and first lesson open', $$('.lesson-row.locked').length === TOTAL - 2, `locked ${$$('.lesson-row.locked').length}`);
+check('stat chrome painted', $('#stat-done').textContent === `0/${TOTAL}`, $('#stat-done').textContent);
 check('no quiz-only lessons left', !appHtml.includes('tag quiz') || true);
 
 /* ---------- locked lesson is refused ---------- */
@@ -115,12 +119,11 @@ await wait(30);
 check('lab pass marks lesson done', state().lessons['p0-bytes']?.done === true);
 check('three cards scheduled for the lesson', state().cards.filter((c) => c.lessonId === 'p0-bytes').length === 3, `got ${state().cards.length}`);
 check('xp awarded', state().xp >= 60, `xp ${state().xp}`);
-check('next lesson unlocked', $('#stat-done').textContent === '2/9', $('#stat-done').textContent);
+check('next lesson unlocked', $('#stat-done').textContent === `2/${TOTAL}`, $('#stat-done').textContent);
 check('lesson foot offers the next lesson', $('#lesson-foot').innerHTML.includes('next'), $('#lesson-foot').innerHTML.slice(0, 120));
 
 /* ---------- play the rest of the terminal labs in order ---------- */
 
-const { LESSONS } = await import('../js/data/curriculum.js');
 
 submitAnswer('definitely-not-the-answer');
 check('wrong answer is rejected', $$('.task.done').length === 3, `done ${$$('.task.done').length}`);
@@ -150,7 +153,19 @@ const webLesson = LESSONS.find((l) => l.id === 'p3-http');
 for (const task of webLesson.lab.tasks) submitAnswer(task.answer);
 await wait(20);
 check('web lab completes', state().lessons['p3-http']?.done === true);
-check('whole curriculum done', $('#stat-done').textContent === '9/9', $('#stat-done').textContent);
+
+/* ---------- the rest of the terminal ladder ---------- */
+
+for (const id of ['p4-docker', 'p4-cloud', 'p5-recon', 'p5-privesc', 'p5-web', 'p6-detect']) {
+  const lesson = LESSONS.find((l) => l.id === id);
+  await go('#/lesson/' + id);
+  check(`${id}: lab mounted`, Boolean($('#answer-input')), $('#app').innerHTML.slice(0, 60));
+  for (const task of lesson.lab.tasks) submitAnswer(task.answer);
+  await wait(20);
+  check(`${id}: passed`, state().lessons[id]?.done === true);
+}
+
+check('whole curriculum done', $('#stat-done').textContent === `${TOTAL}/${TOTAL}`, $('#stat-done').textContent);
 
 /* ---------- review ---------- */
 
@@ -168,8 +183,8 @@ check('grading reschedules a card', state().cards.some((c) => c.reps > 0), JSON.
 /* ---------- progress ---------- */
 
 await go('#/progress');
-check('progress page lists every lesson', $$('table tbody tr').length === 9, `rows ${$$('table tbody tr').length}`);
-check('progress bars render', $$('.bar').length === 5, `bars ${$$('.bar').length}`);
+check('progress page lists every lesson', $$('table tbody tr').length === TOTAL, `rows ${$$('table tbody tr').length}`);
+check('progress bars render', $$('.bar').length === PHASES, `bars ${$$('.bar').length}`);
 
 /* ---------- report ---------- */
 

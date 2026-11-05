@@ -1,3 +1,5 @@
+import { ADVANCED_PHASES } from './advanced.js';
+
 /**
  * Sarvam curriculum.
  * Everything the app renders comes from here. Add a lesson object and it appears in the map,
@@ -38,7 +40,7 @@ const AUTHLOG = [
   'Nov  4 23:58:41 web01 sshd[6402]: Connection closed by 45.155.205.233 port 61120 [preauth]'
 ].join('\n');
 
-export const CURRICULUM = [
+const BASE_PHASES = [
   {
     id: 'bonus',
     num: '00',
@@ -904,6 +906,8 @@ Missing flags are real findings, not trivia.</div>
     ]
   }
 ];
+
+export const CURRICULUM = [...BASE_PHASES, ...ADVANCED_PHASES];
 
 /** Flat, ordered list: gating and "next lesson" logic depend on this order. */
 export const LESSONS = CURRICULUM.flatMap((phase) =>
