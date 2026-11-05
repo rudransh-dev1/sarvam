@@ -206,6 +206,27 @@ check('rollover: week 2 day 2 after seven days', roll2.dayInWeek === 2 && roll2.
 const roll3 = questDayFor('2026-11-01', '2026-11-22');
 check('rollover: week 4 after three weeks', roll3.weekIndex === 3, JSON.stringify(roll3));
 
+
+/* ---------- every week is a real room, not three clicks ---------- */
+
+const { weekRooms, weekTaskCount } = await import('../js/data/rooms.js');
+
+for (const week of WEEKS) {
+  const rooms = weekRooms(week);
+  check(`${week.id}: six days in the room`, rooms.length === 6, `got ${rooms.length}`);
+  check(`${week.id}: at least 20 graded tasks`, weekTaskCount(week) >= 20, `got ${weekTaskCount(week)}`);
+  rooms.forEach((r) => {
+    check(`${week.id} day ${r.day}: has a title`, Boolean(r.title && r.title.length > 10), r.title);
+    check(`${week.id} day ${r.day}: names a tool`, Boolean(r.tip && r.tip.length >= 3), r.tip);
+    check(`${week.id} day ${r.day}: four tasks`, r.tasks.length >= 4, `got ${r.tasks.length}`);
+    r.tasks.forEach((t) => {
+      check(`${week.id} d${r.day} ${t.id}: prompt`, Boolean(t.prompt && t.prompt.length > 8), t.prompt);
+      check(`${week.id} d${r.day} ${t.id}: has an answer`, t.answer !== undefined && String(t.answer).length > 0, t.answer);
+    });
+  });
+  check(`${week.id}: keeps its hands-on shell tasks`, rooms.flatMap((r) => r.tasks).filter((t) => t.kind === 'shell').length >= 1);
+}
+
 console.log(`\n${pass} roadmap checks passed, ${fails.length} failed`);
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('roadmap ok');

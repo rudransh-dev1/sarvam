@@ -1,6 +1,7 @@
 import { CURRICULUM, LESSONS, lessonById, lessonIndex, TOTAL_LESSONS } from './data/curriculum.js';
 import { WEEKS } from './data/roadmap.js';
 import { todayView, drillsView, remainingView } from './questsview.js';
+import { weekRooms } from './data/rooms.js';
 import { RES, MINDMAPS } from './data/roadmap.js';
 import * as P from './progress.js';
 import { createShell } from './terminal.js';
@@ -228,6 +229,9 @@ function gradeCheck(check) {
 
 function mountLab(host, lesson, onPass) {
   const lab = lesson.lab || {};
+  const roadmapWeek = WEEKS.find((w) => w.id === lesson.id);
+  const rooms = roadmapWeek ? weekRooms(roadmapWeek) : null;
+  const tasks = rooms ? rooms.flatMap((r) => r.tasks.map((t) => ({ ...t, day: r.day }))) : lab.tasks || [];
   const cache = labCache();
   const done = new Set(cache[lesson.id] || []);
   let writer = () => {};
@@ -252,15 +256,35 @@ function mountLab(host, lesson, onPass) {
   const tasksBox = host.querySelector('#tasks');
 
   const renderTasks = () => {
-    tasksBox.innerHTML = (lab.tasks || [])
+    const byDay = new Map();
+    tasks.forEach((t) => {
+      const d = t.day || 1;
+      if (!byDay.has(d)) byDay.set(d, []);
+      byDay.get(d).push(t);
+    });
+    const dayHead = (d) => {
+      const room = rooms ? rooms[d - 1] : null;
+      if (!room) return '';
+      const list = byDay.get(d) || [];
+      const got = list.filter((t) => done.has(t.id)).length;
+      return `<div class="room-day">
+        <div class="room-day-head">
+          <span class="room-day-no">Day ${d}</span>
+          <span class="room-day-title">${esc(room.title)}</span>
+          <span class="room-day-count">${got}/${list.length}</span>
+        </div>
+        <p class="room-tip"><b>Tool:</b> ${esc(room.tip)}</p>
+      </div>`;
+    };
+    tasksBox.innerHTML = [...byDay.keys()].sort((a, b) => a - b).map((d) => dayHead(d) + (byDay.get(d) || [])
       .map(
         (t) => `
         <div class="task ${done.has(t.id) ? 'done' : ''}">
           <span class="tick">✓</span>
-          <span class="task-text">${esc(t.prompt)}<span class="task-hint">${esc(t.hint)}</span></span>
+          <span class="task-text">${esc(t.prompt)}<span class="task-hint">${esc(t.hint || '')}</span></span>
         </div>`
       )
-      .join('');
+      .join('')).join('');
   };
 
   const persist = () => {
@@ -270,7 +294,7 @@ function mountLab(host, lesson, onPass) {
 
   const finishIfDone = () => {
     persist();
-    if (done.size === (lab.tasks || []).length) onPass();
+    if (done.size === tasks.length) onPass();
   };
 
   /* --- terminal lab --- */
@@ -389,7 +413,7 @@ function mountLab(host, lesson, onPass) {
     if (!raw) return;
     const norm = (v) => String(v).trim().toLowerCase().replace(/\s+/g, ' ');
     const matches = (t) => t.answer === '*' || norm(t.answer) === norm(raw) || (t.accept || []).some((a) => norm(a) === norm(raw));
-    const hit = (lab.tasks || []).find((t) => !done.has(t.id) && matches(t));
+    const hit = tasks.find((t) => !done.has(t.id) && matches(t));
     if (hit && hit.check) {
       const why = gradeCheck(hit.check);
       if (why) {
@@ -411,7 +435,7 @@ function mountLab(host, lesson, onPass) {
       answerInput.value = '';
       writer('✓ accepted: ' + hit.prompt, 't-flag');
       renderTasks();
-      toast(done.size === (lab.tasks || []).length ? 'All tasks complete. Lab passed.' : 'Task cleared.');
+      toast(done.size === tasks.length ? 'All tasks complete. Lab passed.' : 'Task cleared.');
       finishIfDone();
     } else {
       writer('✗ "' + raw + '" is not it. Read the output again, or open the hint.', 't-err');

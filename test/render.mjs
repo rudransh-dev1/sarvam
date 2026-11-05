@@ -8,6 +8,9 @@ import { JSDOM } from 'jsdom';
 import fs from 'node:fs';
 import { CURRICULUM, LESSONS, TOTAL_LESSONS } from '../js/data/curriculum.js';
 import { WEEKS } from '../js/data/roadmap.js';
+import { weekRooms } from '../js/data/rooms.js';
+const ROOMS = (week) => weekRooms(week);
+const w01 = WEEKS.find((w) => w.id === 'w01');
 
 const TOTAL = TOTAL_LESSONS;
 const MAIN = LESSONS.filter((l) => !l.sideQuest).length;
@@ -114,7 +117,19 @@ check('a wrong answer is rejected', $$('.task.done').length === 1);
 submitAnswer('53');
 submitAnswer('SARVAM{w1_packet_gate_open}');
 await wait(30);
-check('week 1 boss is beaten', state().lessons.w01?.done === true);
+check('week 1 now has a full day-by-day room', $$('.room-day').length === 6, `days ${$$('.room-day').length}`);
+check('week 1 has 24 graded tasks', $$('.task').length === 24, `tasks ${$$('.task').length}`);
+check('only today\'s tasks are cleared', $$('.task.done').length === 3, `done ${$$('.task.done').length}`);
+
+// Finish the rest of the week the way the drills work: type the answers.
+for (const room of ROOMS(w01)) {
+  for (const t of room.tasks) {
+    if (t.check) continue;
+    submitAnswer(t.answer);
+  }
+}
+await wait(30);
+check('week 1 boss is beaten', state().lessons.w01?.done === true, `done ${state().lessons.w01?.done} tasks ${$$('.task.done').length}`);
 check('victory banner appears', $('#lesson-foot').innerHTML.includes('BOSS DEFEATED'));
 check('cards scheduled for week 1', state().cards.filter((c) => c.lessonId === 'w01').length === 3);
 check('stat chrome shows 1/' + TOTAL, $('#stat-done').textContent === `1/${TOTAL}`, $('#stat-done').textContent);
@@ -123,7 +138,9 @@ check('next week is offered', $('#lesson-foot').innerHTML.includes('next: Week 2
 await go('#/lesson/w02');
 check('week 2 unlocked after week 1', $('#app').innerHTML.includes('Missions'), $('#app').innerHTML.slice(0, 60));
 openTab('lab');
-for (const t of WEEKS.find((w) => w.id === 'w02').lab.tasks) submitAnswer(t.answer);
+for (const room of weekRooms(WEEKS.find((w) => w.id === 'w02'))) {
+  for (const t of room.tasks) if (!t.check) submitAnswer(t.answer);
+}
 await wait(20);
 check('week 2 boss beaten', state().lessons.w02?.done === true, `x ${JSON.stringify($$('.task.done').length)}`);
 
@@ -148,8 +165,11 @@ const commitLine = $('#term').textContent.match(/\[main ([0-9a-f]{7})\]/);
 check('git commit prints an id', Boolean(commitLine), $('#term').textContent.slice(-160));
 submitAnswer('2');
 submitAnswer(commitLine ? commitLine[1] : 'deadbee');
+for (const room of weekRooms(WEEKS.find((w) => w.id === 'w03'))) {
+  for (const t of room.tasks) if (!t.check) submitAnswer(t.answer);
+}
 await wait(30);
-check('week 3 boss beaten with real work', state().lessons.w03?.done === true);
+check('week 3 boss beaten with real work', state().lessons.w03?.done === true, `done ${$$('.task.done').length}`);
 check('wrong commit id is refused', true);
 
 /* ---------- side quest: the virtual desktop and the bank ---------- */

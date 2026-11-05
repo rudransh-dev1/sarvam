@@ -290,11 +290,17 @@ const cmdQuests = () =>
 export const PRACTICE = [...portQuests(), ...subnetQuests(), ...encodeQuests(), ...hashQuests(), ...logQuests(), ...cmdQuests()];
 
 /** Which week's theme a topic belongs to, so daily quests match what you are studying. */
-const TOPIC_WEEK = { networking: [1, 2], linux: [2, 3], crypto: [8], web: [5, 6], 'blue team': [8, 10] };
+const TOPIC_WEEK = {
+  networking: [1, 2],
+  linux: [2, 3, 12],
+  crypto: [4, 8],
+  web: [5, 6, 7],
+  'blue team': [9, 10, 11]
+};
 
 export function practiceForWeek(weekNumber) {
   const themed = PRACTICE.filter((q) => (TOPIC_WEEK[q.topic] || []).includes(weekNumber));
-  return themed.length >= 24 ? themed : PRACTICE;
+  return themed.length >= 8 ? themed : PRACTICE;
 }
 
 /** Four quests for one day: deterministic by week and day, so the board is stable all day. */
