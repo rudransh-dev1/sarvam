@@ -28,7 +28,7 @@ export function buildApp(spec) {
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background: #f6f7f9; color: #17202a; }
+  body { font-size: 15.5px; margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background: #f6f7f9; color: #17202a; }
   .bar { display: flex; gap: 6px; padding: 7px 8px; background: #e8ebef; border-bottom: 1px solid #cfd6de; position: sticky; top: 0; }
   .bar input { flex: 1; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 6px 8px; border: 1px solid #b9c2cc; border-radius: 6px; background: #fff; }
   .bar button { font: 12px/1 ui-sans-serif, system-ui; padding: 7px 11px; border: 1px solid #1f5541; background: #0f2b23; color: #d8f5e8; border-radius: 6px; cursor: pointer; }

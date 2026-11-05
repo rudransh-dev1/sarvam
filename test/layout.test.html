@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>layout-test</title>
+<style>html,body{margin:0}iframe{width:1500px;height:1150px;border:0}</style></head>
+<body>
+<iframe id="f" src="/index.html#/lesson/bonus-bank"></iframe>
+<div id="out">running</div>
+<script>
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+f.addEventListener('load', () => {
+  setTimeout(() => {
+    const d = f.contentDocument;
+    const w = f.contentWindow;
+    const r = (el) => el ? el.getBoundingClientRect() : null;
+    const wins = [...d.querySelectorAll('.window')].map((el) => {
+      const b = el.getBoundingClientRect();
+      return [Math.round(b.width), Math.round(b.height)];
+    });
+    const term = r(d.querySelector('#osterm .term'));
+    const frame = r(d.querySelector('#webframe'));
+    const desk = r(d.querySelector('.osdesk'));
+    const prompt = d.querySelector('#osterm .prompt');
+    out.textContent = JSON.stringify({
+      windows: wins,
+      desk: desk && [Math.round(desk.width), Math.round(desk.height)],
+      term: term && [Math.round(term.width), Math.round(term.height)],
+      iframe: frame && [Math.round(frame.width), Math.round(frame.height)],
+      promptText: prompt && prompt.textContent,
+      fontSizeTerm: term && w.getComputedStyle(d.querySelector('#osterm .term')).fontSize,
+      bodyFont: w.getComputedStyle(d.body).fontSize
+    });
+    document.title = 'DONE';
+  }, 1200);
+});
+</script>
+</body></html>

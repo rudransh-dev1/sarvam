@@ -434,7 +434,7 @@ function renderLesson(id) {
       <p>Phase ${lesson.phaseNum} · ${esc(lesson.phaseTitle)} · ${lesson.minutes} min · ${done ? 'already passed, replaying is good' : 'pass the lab to unlock the next lesson'}</p>
     </div>
 
-    <div class="lesson-wrap">
+    <div class="lesson-wrap ${lesson.labType === 'os' ? 'os' : ''}">
       <article class="card concept">
         <div class="card-head"><h3>Concept</h3></div>
         <div class="card-body">${lesson.concept}</div>
