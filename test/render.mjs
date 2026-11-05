@@ -209,30 +209,48 @@ await go('#/');
 check('map reflects cleared levels', $$('.level.done').length === 3, `done ${$$('.level.done').length}`);
 check('week 4 is now the open level', $$('.level.open .level-week').length && $('.level.open .level-week').textContent === 'WEEK 4', $('.level.open .level-week')?.textContent);
 
-/* ---------- today's quest board ---------- */
+/* ---------- today's four practice quests ---------- */
 
 await go('#/today');
 check('today renders four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
-check('today names the week', $('#app').innerHTML.includes('week 1'), $('#app').innerHTML.slice(0, 80));
+check('quests are drills, not videos', !$('#app').innerHTML.includes('Watch:'), 'still has video quests');
+check('today shows the remaining tray', $('#app').innerHTML.includes('Remaining'));
 check('today shows day tabs', $$('.day-tab').length === 6, `got ${$$('.day-tab').length}`);
 
+const firstQuest = $('.quest');
+const firstId = firstQuest.getAttribute('data-quest');
+const rightAnswer = firstQuest.getAttribute('data-answer');
 const xpBefore = state().xp;
-$('.quest [data-act="tick-quest"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+$('.quest-form input').value = 'definitely-wrong';
+$('.quest-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
 await wait(20);
-check('ticking a quest awards xp', state().xp === xpBefore + 10, `${xpBefore} -> ${state().xp}`);
-check('quest tick is stored', Object.values(state().quests || {}).some(Boolean), JSON.stringify(state().quests));
-check('quest row shows done', $$('.quest.done').length === 1, `done ${$$('.quest.done').length}`);
+check('a wrong answer is refused', state().xp === xpBefore, `xp ${state().xp}`);
+check('wrong answer shows feedback', $('#app').innerHTML.includes('not it'));
 
-await go('#/today/3');
-check('day tabs open another day', $('#app').innerHTML.includes('Day 3 of 6'), $('#app').innerHTML.slice(0, 90));
+$('.quest-form input').value = rightAnswer;
+$('.quest-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+await wait(30);
+check('the right answer scores xp', state().xp === xpBefore + 10, `${xpBefore} -> ${state().xp}`);
+check('solved quest is stored', Boolean(state().quests[firstId]), JSON.stringify(state().quests));
 
+/* ---------- drill bank pagination ---------- */
 
+await go('#/drills/1');
+check('drills show ten at a time', $$('.quest').length === 10, `got ${$$('.quest').length}`);
+check('drills show a pager', $('#app').innerHTML.includes('1-10 of'), $('#app').innerHTML.slice(-300));
+await go('#/drills/2');
+check('page 2 shows the next ten', $('#app').innerHTML.includes('11-20 of'), $('#app').innerHTML.slice(-300));
+
+/* ---------- remaining tray ---------- */
+
+await go('#/remaining/1');
+check('remaining page renders', $('#app').innerHTML.includes('Remaining'));
 /* ---------- quests are optional and roll over on their own ---------- */
 
 await go('#/today');
 check('today always offers four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
 check('quests never gate a level', !$('#app').innerHTML.includes('Complete your quests first'));
-check('board says the quests are optional', $('#app').innerHTML.includes('optional'), 'no optional wording');
+check('quests are clearly optional', /they change tomorrow|never expire/i.test($('#app').textContent), 'no optional wording');
 
 
 console.log(`\n${pass} render checks passed, ${fails.length} failed`);
