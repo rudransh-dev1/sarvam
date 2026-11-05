@@ -129,10 +129,10 @@ function shellFor(id) {
   check('grep: accepted login visible', accepted.includes('svc-backup'), accepted);
   const flag = run(sh, 'grep -i audit /var/log/auth.log');
   check('grep: flag found', flag.includes('SARVAM{one_lazy_password}'), flag);
-  const top = run(sh, "grep 'Failed password' /var/log/auth.log | cut -d' ' -f11 | sort | uniq -c | sort -rn");
-  check('grep: field extraction works', /203\.0\.113\.44/.test(top.then ? '' : top) || true);
-  const ips = run(sh, "grep 'Failed password' /var/log/auth.log | cut -d' ' -f11 | sort | uniq -c | sort -rn");
-  check('grep: pipe chain returns ips', ips.includes('203.0.113.44'), ips);
+  const ips = run(sh, "grep 'Failed password' /var/log/auth.log | grep -o '203.0.113.44' | sort | uniq -c");
+  check('grep: pipe chain counts the attacker ip', ips.trim().startsWith('5'), ips);
+  const who = run(sh, "grep 'Failed password' /var/log/auth.log | cut -d' ' -f11 | sort | uniq -c | sort -rn");
+  check('grep: field extraction lists the tried usernames', who.includes('ftp') && who.includes('admin'), who);
   const deploy = run(sh, 'grep Accepted /var/log/auth.log | grep -o 198');
   check('grep: deploy ip appears in accepted lines', accepted.includes('198.51.100.9'));
 }

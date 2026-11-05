@@ -21,7 +21,9 @@ function fresh() {
     streak: 0,
     lessons: {},
     cards: [],
-    history: []
+    history: [],
+    missions: {},
+    badges: []
   };
 }
 
@@ -90,18 +92,27 @@ export function lessonStatus(lesson) {
 }
 
 export function nextLessonId() {
-  const found = LESSONS.find((l) => !isDone(l.id));
-  if (!found) return null;
-  const index = LESSONS.indexOf(found);
-  return isUnlocked(index) ? found.id : null;
+  const chain = LESSONS.filter((l) => !l.sideQuest);
+  const found = chain.find((l) => !isDone(l.id));
+  return found ? found.id : null;
+}
+
+/** The main ladder only: side quests give XP but never count toward the roadmap. */
+export function mainLessons() {
+  return LESSONS.filter((l) => !l.sideQuest);
 }
 
 export function doneCount() {
-  return LESSONS.filter((l) => isDone(l.id)).length;
+  return mainLessons().filter((l) => isDone(l.id)).length;
+}
+
+export function sideDoneCount() {
+  return LESSONS.filter((l) => l.sideQuest && isDone(l.id)).length;
 }
 
 export function pctDone() {
-  return TOTAL_LESSONS === 0 ? 0 : Math.round((doneCount() / TOTAL_LESSONS) * 100);
+  const total = mainLessons().length;
+  return total === 0 ? 0 : Math.round((doneCount() / total) * 100);
 }
 
 /* ---------- completing a lesson ---------- */
@@ -192,4 +203,61 @@ export function resetAll() {
 
 export function exportData() {
   return JSON.stringify(state, null, 2);
+}
+
+
+/* ---------- daily missions (the checklist from the roadmap) ---------- */
+
+export function missionDone(lessonId, missionId) {
+  return Boolean(state.missions?.[lessonId]?.[missionId]);
+}
+
+export function missionCount(lesson) {
+  const list = lesson.missions || [];
+  const done = list.filter((m) => missionDone(lesson.id, m.id)).length;
+  return { done, total: list.length };
+}
+
+export function toggleMission(lessonId, missionId) {
+  state.missions = state.missions || {};
+  const row = (state.missions[lessonId] = state.missions[lessonId] || {});
+  row[missionId] = !row[missionId];
+  state.xp = Math.max(0, state.xp + (row[missionId] ? 10 : -10));
+  save();
+  return row[missionId];
+}
+
+/* ---------- ranks and badges ---------- */
+
+export const RANKS = [
+  { at: 0, name: 'Script Kiddie in Training' },
+  { at: 150, name: 'Packet Sniffer' },
+  { at: 400, name: 'Shell Wrangler' },
+  { at: 750, name: 'Web Breaker' },
+  { at: 1100, name: 'Intern-Ready' },
+  { at: 1500, name: 'Hired' }
+];
+
+export function rankFor(xp = state.xp) {
+  let cur = RANKS[0];
+  let next = null;
+  for (let i = 0; i < RANKS.length; i++) {
+    if (xp >= RANKS[i].at) {
+      cur = RANKS[i];
+      next = RANKS[i + 1] || null;
+    }
+  }
+  return { cur, next, pct: next ? Math.round(((xp - cur.at) / (next.at - cur.at)) * 100) : 100 };
+}
+
+export function awardBadge(id) {
+  state.badges = state.badges || [];
+  if (state.badges.includes(id)) return false;
+  state.badges.push(id);
+  save();
+  return true;
+}
+
+export function hasBadge(id) {
+  return (state.badges || []).includes(id);
 }

@@ -4,6 +4,7 @@
  * and answers everything else with "command not found".
  */
 
+import { runPython } from './pyshell.js';
 import { ipcalc as ipcalcText, parseCidr, md5, b64encode, b64decode, httpRequest, ipToInt, intToIp } from './netproto.js';
 
 const USER = 'student';
@@ -91,6 +92,39 @@ function stripQuotes(s) {
   return s.replace(/^['"]|['"]$/g, '');
 }
 
+
+function sha256Hex(msg) {
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes = Array.from(new TextEncoder().encode(msg));
+  const bitLen = bytes.length * 8;
+  bytes.push(0x80);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(i >= 4 ? 0 : (bitLen >>> (i * 8)) & 0xff);
+  let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < bytes.length; o += 64) {
+    const w = new Array(64);
+    for (let i = 0; i < 16; i++) w[i] = (bytes[o + i*4] << 24) | (bytes[o + i*4 + 1] << 16) | (bytes[o + i*4 + 2] << 8) | bytes[o + i*4 + 3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >>> 3);
+      const s1 = rotr(w[i-2], 17) ^ rotr(w[i-2], 19) ^ (w[i-2] >>> 10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+    }
+    let [a,b,c,d,e,f,g,hh] = h;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (hh + S1 + ch + K[i] + w[i]) | 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const mj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + mj) | 0;
+      hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    h = [h[0]+a|0,h[1]+b|0,h[2]+c|0,h[3]+d|0,h[4]+e|0,h[5]+f|0,h[6]+g|0,h[7]+hh|0];
+  }
+  return h.map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
 export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
   let fs = clone(srcFs);
   let cwd = normalizePath(startCwd);
@@ -170,7 +204,30 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     id: () => ok('uid=1001(student) gid=1001(student) groups=1001(student),27(sudo)'),
     date: () => ok(new Date().toString()),
     ps: () => ok(PROCS),
-    echo: (args) => ok(args.join(' ')),
+    echo: (args) => {
+      // Matches bash: escapes are only interpreted with -e. Plain echo keeps backslashes, which is
+      // exactly what a Python script needs when it writes split('\\n') into a file.
+      let rest = args;
+      let interpret = false;
+      while (rest[0] && /^-[neE]+$/.test(rest[0])) {
+        if (rest[0].includes('e')) interpret = true;
+        rest = rest.slice(1);
+      }
+      const text = rest.join(' ');
+      return ok(interpret ? text.replace(/\\n/g, '\n').replace(/\\t/g, '    ') : text);
+    },
+    printf(args) {
+      if (!args.length) return fail('usage: printf \'%s\\n\' "line 1" "line 2" > file');
+      const fmt = args[0];
+      const vals = args.slice(1);
+      if (/%s/.test(fmt)) {
+        const unit = fmt.replace(/\\n/g, '\n');
+        if (!vals.length) return ok(unit.replace(/%s/g, '').replace(/\n$/, ''));
+        return ok(vals.map((v) => unit.replace(/%s/g, v)).join('').replace(/\n$/, ''));
+      }
+      return ok(fmt.replace(/\\n/g, '\n'));
+    },
+
     man: (args) => ok(MAN[args[0]] || `No manual entry for ${args[0]}`),
     exit: () => ok('Leaving the lab. Refresh to start over.'),
 
@@ -222,7 +279,7 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     },
 
     grep(args, stdin) {
-      let ignoreCase = false, recursive = false, count = false, lineNo = false;
+      let ignoreCase = false, recursive = false, count = false, lineNo = false, onlyMatch = false;
       const words = [];
       for (const a of args) {
         if (a.startsWith('-') && a.length > 1 && !/^-\d/.test(a)) {
@@ -230,6 +287,7 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
           if (a.includes('r') || a.includes('R')) recursive = true;
           if (a.includes('c')) count = true;
           if (a.includes('n')) lineNo = true;
+          if (a.includes('o')) onlyMatch = true;
         } else words.push(stripQuotes(a));
       }
       if (!words.length) return fail('usage: grep [-i] [-r] [-c] [-n] <pattern> [path]');
@@ -247,7 +305,10 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
         const lines = String(stdin).split('\n');
         const hits = [];
         lines.forEach((line, i) => {
-          if (re.test(line)) hits.push((lineNo ? i + 1 + ':' : '') + line);
+          if (re.test(line)) {
+            if (onlyMatch) for (const m of line.match(new RegExp(pattern, (ignoreCase ? 'i' : '') + 'g')) || []) hits.push(m);
+            else hits.push((lineNo ? i + 1 + ':' : '') + line);
+          }
         });
         if (count) return ok(String(hits.length));
         return ok(hits.join('\n'));
@@ -270,7 +331,10 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
         (fileNode.content || '').split('\n').forEach((line, i) => {
           if (re.test(line)) {
             hits++;
-            if (!count) out.push((files.length > 1 ? p + ':' : '') + (lineNo ? i + 1 + ':' : '') + line);
+            if (!count) {
+              if (onlyMatch) for (const m of line.match(new RegExp(pattern, (ignoreCase ? 'i' : '') + 'g')) || []) out.push(m);
+              else out.push((files.length > 1 ? p + ':' : '') + (lineNo ? i + 1 + ':' : '') + line);
+            }
           }
         });
         if (count && hits) out.push(files.length > 1 ? `${p}:${hits}` : String(hits));
@@ -703,6 +767,168 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
       return ok(found.join('\n'));
     },
 
+
+    touch(args) {
+      if (!args[0]) return fail('usage: touch <file>');
+      for (const a of args) {
+        const path = abs(a);
+        if (walk(path)) continue;
+        const parentPath = path.split('/').slice(0, -1).join('/') || '/';
+        const parent = walk(parentPath);
+        if (!parent || parent.type !== 'dir') return fail(`touch: cannot touch '${a}': No such file or directory`);
+        parent.children[path.split('/').pop()] = { type: 'file', mode: '644', owner: USER, content: '' };
+      }
+      return ok('');
+    },
+
+    mkdir(args) {
+      const names = args.filter((a) => !a.startsWith('-'));
+      if (!names.length) return fail('usage: mkdir <dir>');
+      for (const a of names) {
+        const path = abs(a);
+        if (walk(path)) return fail(`mkdir: cannot create directory '${a}': File exists`);
+        const parent = walk(path.split('/').slice(0, -1).join('/') || '/');
+        if (!parent || parent.type !== 'dir') return fail(`mkdir: cannot create directory '${a}': No such file or directory`);
+        parent.children[path.split('/').pop()] = { type: 'dir', mode: '755', owner: USER, children: {} };
+      }
+      return ok('');
+    },
+
+    rm(args) {
+      const names = args.filter((a) => !a.startsWith('-'));
+      if (!names.length) return fail('usage: rm <file>');
+      for (const a of names) {
+        const path = abs(a);
+        const node = walk(path);
+        if (!node) return fail(`rm: cannot remove '${a}': No such file or directory`);
+        if (node.type === 'dir' && !args.some((x) => x.startsWith('-') && x.includes('r'))) return fail(`rm: cannot remove '${a}': Is a directory`);
+        const parent = walk(path.split('/').slice(0, -1).join('/') || '/');
+        delete parent.children[path.split('/').pop()];
+      }
+      return ok('');
+    },
+
+    cp(args) {
+      if (args.length < 2) return fail('usage: cp <src> <dst>');
+      const src = walk(abs(args[0]));
+      if (!src || src.type !== 'file') return fail(`cp: cannot stat '${args[0]}': No such file or directory`);
+      let dst = abs(args[1]);
+      const dnode = walk(dst);
+      if (dnode && dnode.type === 'dir') dst = dst + '/' + args[0].split('/').pop();
+      const parent = walk(dst.split('/').slice(0, -1).join('/') || '/');
+      if (!parent) return fail(`cp: cannot create regular file '${args[1]}': No such file or directory`);
+      parent.children[dst.split('/').pop()] = { ...src, owner: USER };
+      return ok('');
+    },
+
+    mv(args) {
+      if (args.length < 2) return fail('usage: mv <src> <dst>');
+      const r = commands.cp(args);
+      if (r.err) return fail(r.out.replace('cp:', 'mv:'));
+      return commands.rm([args[0]]);
+    },
+
+    python(args) {
+      const file = args.find((a) => !a.startsWith('-'));
+      if (!file) return fail('usage: python <script.py>');
+      const node = walk(abs(file));
+      if (!node || node.type !== 'file') return fail(`python: can't open file '${file}': [Errno 2] No such file or directory`);
+      const res = runPython(node.content || '', {
+        open: (name, mode) => {
+          const path = abs(name);
+          return {
+            __file: true,
+            read: () => {
+              const f = walk(path);
+              if (!f || f.type !== 'file') throw new Error(`FileNotFoundError: [Errno 2] No such file or directory: '${name}'`);
+              return f.content || '';
+            },
+            write: (t) => {
+              let f = walk(path);
+              if (!f) {
+                const parent = walk(path.split('/').slice(0, -1).join('/') || '/');
+                f = { type: 'file', mode: '644', owner: USER, content: '' };
+                parent.children[path.split('/').pop()] = f;
+              }
+              f.content = (mode === 'a' ? f.content : mode === 'w' && !f.__w ? '' : f.content) + t;
+              f.__w = true;
+            }
+          };
+        }
+      });
+      return res.err ? fail(res.out) : ok(res.out);
+    },
+
+    python3(args) { return commands.python(args); },
+
+    sha256sum(args, stdin) {
+      const src = args[0] ? readFile(args[0]) : { text: stdin == null ? '' : String(stdin) };
+      if (src.error) return fail(src.error.replace('cat:', 'sha256sum:'));
+      return ok(sha256Hex(src.text) + '  ' + (args[0] || '-'));
+    },
+
+    nc(args) {
+      const net = opts.net;
+      const flags = args.filter((a) => a.startsWith('-'));
+      const rest = args.filter((a) => !a.startsWith('-'));
+      if (rest.length < 2) return fail('usage: nc -zv <host> <port>');
+      const host = ((net && net.hosts) || []).find((h) => h.ip === rest[0] || h.name === rest[0]);
+      if (!host) return fail(`nc: getaddrinfo for host "${rest[0]}" port ${rest[1]}: Name or service not known`);
+      const port = (host.ports || []).find((p) => p.port === Number(rest[1]));
+      const verbose = flags.some((f) => f.includes('v'));
+      if (port && port.state === 'open') return ok(`Connection to ${rest[0]} ${rest[1]} port [tcp/${port.svc}] succeeded!`);
+      return fail(verbose ? `nc: connect to ${rest[0]} port ${rest[1]} (tcp) failed: Connection refused` : '');
+    },
+
+    history() { return ok(history.map((h, i) => `${String(i + 1).padStart(4)}  ${h}`).join('\n')); },
+
+    which(args) { return commands[args[0]] ? ok('/usr/bin/' + args[0]) : fail(''); },
+
+    git(args) {
+      const sub = args[0];
+      const repo = walk(abs('.git'));
+      if (sub === 'init') {
+        const here = walk(cwd);
+        here.children['.git'] = { type: 'dir', mode: '755', owner: USER, children: { HEAD: { type: 'file', mode: '644', owner: USER, content: 'ref: refs/heads/main\n' } } };
+        return ok(`Initialized empty Git repository in ${cwd}/.git/`);
+      }
+      if (!repo) return fail('fatal: not a git repository (or any of the parent directories): .git');
+      const st = (repo.__st = repo.__st || { staged: [], commits: [] });
+      const here = walk(cwd);
+      if (sub === 'add') {
+        const names = args[1] === '.' ? Object.keys(here.children).filter((n) => n !== '.git' && here.children[n].type === 'file') : args.slice(1);
+        for (const n of names) {
+          if (!here.children[n]) return fail(`fatal: pathspec '${n}' did not match any files`);
+          if (!st.staged.includes(n)) st.staged.push(n);
+        }
+        return ok('');
+      }
+      if (sub === 'commit') {
+        const i = args.indexOf('-m');
+        const msg = i >= 0 ? args[i + 1] : null;
+        if (!msg) return fail('error: switch `m` requires a value (use: git commit -m "message")');
+        if (!st.staged.length) return fail('nothing to commit, working tree clean');
+        const id = md5(msg + st.commits.length).slice(0, 7);
+        st.commits.push({ id, msg, files: [...st.staged] });
+        const n = st.staged.length;
+        st.staged = [];
+        return ok(`[main ${id}] ${msg}\n ${n} file${n > 1 ? 's' : ''} changed`);
+      }
+      if (sub === 'status') {
+        const untracked = Object.keys(here.children).filter((n) => n !== '.git' && !st.staged.includes(n) && !st.commits.some((c) => c.files.includes(n)));
+        return ok(
+          'On branch main\n' +
+            (st.staged.length ? 'Changes to be committed:\n' + st.staged.map((n) => '  new file:   ' + n).join('\n') + '\n' : '') +
+            (untracked.length ? 'Untracked files:\n' + untracked.map((n) => '  ' + n).join('\n') + '\n' : '') +
+            (!st.staged.length && !untracked.length ? 'nothing to commit, working tree clean' : '')
+        );
+      }
+      if (sub === 'log') return ok(st.commits.length ? st.commits.slice().reverse().map((c) => `commit ${c.id}\n    ${c.msg}`).join('\n\n') : 'fatal: your current branch \'main\' does not have any commits yet');
+      if (sub === 'remote') return ok('');
+      if (sub === 'push') return st.commits.length ? ok(`To github.com:student/${cwd.split('/').pop()}.git\n * [new branch]      main -> main`) : fail('error: src refspec main does not match any');
+      return fail(`git: '${sub}' is not supported in this lab. Try init, add, commit, status, log, push.`);
+    },
+
     tr(args, piped) {
       let from = args[0] || '';
       let to = args[1] || '';
@@ -749,11 +975,17 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     return ok((fromEnd ? src.lines.slice(-n) : src.lines.slice(0, n)).join('\n'));
   }
 
-  /** Split a command line into tokens, keeping quoted strings whole and treating | as a token. */
+  /** Split a command line into tokens. Quoted text is kept exactly (including leading spaces); | > >> are their own tokens. */
   function tokenize(line) {
     const tokens = [];
     let cur = '';
+    let has = false; // true when the current token started (so "" and "   " still count)
     let quote = null;
+    const flush = () => {
+      if (has) tokens.push(cur);
+      cur = '';
+      has = false;
+    };
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (quote) {
@@ -761,21 +993,32 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
         else cur += ch;
         continue;
       }
-      if (ch === "'" || ch === '"') { quote = ch; continue; }
+      if (ch === "'" || ch === '"') {
+        quote = ch;
+        has = true;
+        continue;
+      }
       if (ch === '|') {
-        if (cur.trim()) tokens.push(cur.trim());
-        cur = '';
+        flush();
         tokens.push('|');
         continue;
       }
+      if (ch === '>') {
+        flush();
+        if (line[i + 1] === '>') {
+          tokens.push('>>');
+          i++;
+        } else tokens.push('>');
+        continue;
+      }
       if (/\s/.test(ch)) {
-        if (cur.trim()) tokens.push(cur.trim());
-        cur = '';
+        flush();
         continue;
       }
       cur += ch;
+      has = true;
     }
-    if (cur.trim()) tokens.push(cur.trim());
+    flush();
     return tokens;
   }
 
@@ -793,7 +1036,41 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     }
   }
 
+  /** Split on top-level semicolons so `cmd ; cmd` runs in order, exactly like bash. */
+  function splitStatements(line) {
+    const parts = [];
+    let cur = '';
+    let quote = null;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quote) { cur += ch; if (ch === quote) quote = null; continue; }
+      if (ch === "'" || ch === '"') { quote = ch; cur += ch; continue; }
+      if (ch === ';') { parts.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    parts.push(cur);
+    return parts
+      .filter((p) => p.trim())
+      // a lone '; python x.py' inside a quoted hint stays whole; bare '&&' style chaining is not supported
+      .flatMap((p) => (/;(?=\s)/.test(p) && !/["']/.test(p) ? p.split(';') : [p]));
+  }
+
   function run(raw) {
+    const statements = splitStatements(String(raw));
+    if (statements.length <= 1) return runOne(raw);
+    let out = '';
+    let err = false;
+    let clear = false;
+    for (const st of statements) {
+      const r = runOne(st);
+      if (r.clear) { out = ''; clear = true; }
+      else if (r.out) out += (out ? '\n' : '') + r.out;
+      if (r.err) err = true;
+    }
+    return { out, err, clear };
+  }
+
+  function runOne(raw) {
     const line = raw.trim();
     if (!line) return { out: '', err: false };
     history.push(line);
@@ -807,6 +1084,13 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     let err = false;
     let clear = false;
     let stdin = null;
+    let redirect = null;
+    const lastSeg = segments[segments.length - 1];
+    const ri = lastSeg.findIndex((t) => t === '>' || t === '>>');
+    if (ri >= 0) {
+      redirect = { file: lastSeg[ri + 1], append: lastSeg[ri] === '>>' };
+      lastSeg.splice(ri);
+    }
     for (const segment of segments) {
       const res = runSegment(segment, stdin);
       out = res.out;
@@ -814,6 +1098,20 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
       clear = Boolean(res.clear);
       if (err) break;
       stdin = res.out;
+    }
+    if (redirect && !err) {
+      if (!redirect.file) return { out: 'bash: syntax error near unexpected token `newline\'', err: true };
+      const path = abs(redirect.file);
+      const parent = walk(path.split('/').slice(0, -1).join('/') || '/');
+      if (!parent || parent.type !== 'dir') return { out: `bash: ${redirect.file}: No such file or directory`, err: true };
+      const name = path.split('/').pop();
+      const existing = parent.children[name];
+      if (existing && existing.type === 'file' && !can(existing, 'w')) return { out: `bash: ${redirect.file}: Permission denied`, err: true };
+      const text = out + (out ? '\n' : '');
+      parent.children[name] = existing && existing.type === 'file'
+        ? { ...existing, content: redirect.append ? (existing.content || '') + text : text }
+        : { type: 'file', mode: '644', owner: USER, content: text };
+      out = '';
     }
     return { out, err, clear };
   }
@@ -824,6 +1122,23 @@ export function createShell(srcFs, startCwd = '/home/student', opts = {}) {
     prompt: () => `${USER}@${HOST}:${cwd}$`,
     cwd: () => cwd,
     history: () => history.slice(),
+    /** Grader hooks: read a file, run a python file, and inspect git state without touching history. */
+    peek(path) {
+      const n = walk(abs(path));
+      return n && n.type === 'file' ? n.content || '' : null;
+    },
+    runFile(path) {
+      const n = walk(abs(path));
+      if (!n || n.type !== 'file') return { out: '', err: true };
+      const saved = history.length;
+      const r = commands.python([path]);
+      history.length = saved;
+      return r;
+    },
+    gitCommits() {
+      const repo = walk(abs('.git'));
+      return repo && repo.__st ? repo.__st.commits.slice() : [];
+    },
     reset() {
       fs = clone(srcFs);
       cwd = normalizePath(startCwd);

@@ -690,3 +690,148 @@ td.mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .task-text { font-size: 15.2px; }
 .q-title { font-size: 17px; }
 .lesson-head h1 { font-size: 31px; }
+
+/* ==========================================================================
+   Roadmap game layer: levels, missions, resources, rank
+   ========================================================================== */
+
+.rankbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: center;
+  margin: 18px 0 10px;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+}
+.rank-name small { display: block; color: var(--faint); font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+.rank-name strong { font-family: var(--serif); font-size: 21px; color: var(--mint); }
+.rank-track { height: 10px; border-radius: 99px; background: rgba(151, 180, 212, 0.14); overflow: hidden; }
+.rank-track i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), var(--lav)); border-radius: 99px; transition: width 0.6s; }
+.rank-next { color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 14px; }
+.level {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.2s;
+}
+.level:hover:not(.locked) { transform: translateY(-3px); border-color: var(--mint); box-shadow: 0 16px 36px -24px var(--mint); text-decoration: none; }
+.level.locked { opacity: 0.5; cursor: not-allowed; }
+.level.done { border-color: rgba(79, 227, 171, 0.45); background: linear-gradient(160deg, rgba(79, 227, 171, 0.1), var(--panel)); }
+.level.open { border-color: var(--lav); box-shadow: 0 0 0 1px var(--lav-dim), 0 16px 40px -28px var(--lav); }
+.level-orb {
+  flex: none;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--serif); font-size: 21px; font-weight: 700;
+  background: rgba(151, 180, 212, 0.12);
+  color: var(--sky);
+  border: 1px solid var(--line-strong);
+}
+.level.done .level-orb { background: var(--mint); color: #05231a; border-color: var(--mint); }
+.level.open .level-orb { background: var(--lav-dim); color: var(--lav); border-color: var(--lav); }
+.level-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.level-week { font-size: 11.5px; letter-spacing: 0.14em; color: var(--faint); font-weight: 700; }
+.level-title { font-family: var(--serif); font-size: 19.5px; font-weight: 700; line-height: 1.25; }
+.level-sub { color: var(--muted); font-size: 14.5px; }
+.level-boss { color: var(--amber); font-size: 13.5px; margin-top: 2px; }
+.level-bar { height: 6px; border-radius: 99px; background: rgba(151, 180, 212, 0.14); overflow: hidden; margin-top: 8px; }
+.level-bar i { display: block; height: 100%; background: var(--mint); transition: width 0.4s; }
+.level-meta { color: var(--faint); font-size: 12.5px; }
+.level-state { position: absolute; top: 14px; right: 16px; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.level.open .level-state { color: var(--lav); }
+.level.done .level-state { color: var(--mint); }
+
+.mapgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.mapcard {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 15px 17px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+.mapcard:hover:not(.locked) { border-color: var(--sky); text-decoration: none; }
+.mapcard.locked { opacity: 0.45; }
+.mapcard-name { font-weight: 700; font-size: 16px; }
+.mapcard-why { color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+.mapcard-when { color: var(--sky); font-size: 12px; margin-top: 4px; letter-spacing: 0.04em; }
+.mapcard.locked .mapcard-when { color: var(--faint); }
+
+.side-phase { margin-top: 14px; }
+.side-head { color: var(--lav); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 14px 4px 6px; }
+
+/* tabs */
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.tabs button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14.5px;
+  cursor: pointer;
+}
+.tabs button.on { background: var(--mint-dim); color: var(--mint); border-color: var(--mint); }
+.pane { display: none; }
+.pane.on { display: block; }
+.lesson-wrap.single { grid-template-columns: minmax(0, 1fr); }
+
+/* missions */
+.mission {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 6px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.mission:last-of-type { border-bottom: none; }
+.mission input { margin-top: 5px; accent-color: var(--mint); width: 18px; height: 18px; flex: none; }
+.mission-kind { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; padding: 3px 8px; border-radius: 6px; margin-top: 3px; }
+.mission-kind.learn { background: var(--lav-dim); color: var(--lav); }
+.mission-kind.build { background: var(--mint-dim); color: var(--mint); }
+.mission-text { font-size: 16.5px; }
+.mission.done .mission-text { color: var(--faint); text-decoration: line-through; }
+.deliverable { margin-top: 16px; padding: 14px 16px; border: 1px solid rgba(255, 212, 138, 0.35); border-radius: 12px; background: rgba(255, 212, 138, 0.07); }
+.deliverable small, .aibox small { display: block; color: var(--amber); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2px; }
+.deliverable strong { font-size: 16.5px; }
+.aibox { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--muted); font-size: 15px; }
+.aibox small { color: var(--sky); }
+
+/* resources */
+.res-h { margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.res { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; color: var(--text); text-decoration: none; background: var(--panel-2); }
+.res:hover { border-color: var(--mint); text-decoration: none; }
+.res-badge { flex: none; min-width: 52px; text-align: center; font-size: 12px; font-weight: 800; padding: 5px 8px; border-radius: 8px; }
+.res-badge.hindi { background: rgba(255, 143, 107, 0.16); color: #ffab8a; }
+.res-badge.platform { background: var(--mint-dim); color: var(--mint); }
+.res-badge.english { background: rgba(134, 211, 255, 0.14); color: var(--sky); }
+.res-badge.map { background: var(--lav-dim); color: var(--lav); }
+.res-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.res-body small { color: var(--muted); font-size: 13.5px; }
+.res-go { color: var(--faint); font-size: 13px; }
+
+.victory { margin-bottom: 14px; padding: 18px 20px; border-radius: 14px; border: 1px solid var(--mint); background: linear-gradient(120deg, var(--mint-dim), var(--lav-dim)); }
+.victory-title { font-family: var(--serif); font-size: 22px; font-weight: 800; color: var(--mint); letter-spacing: 0.04em; margin-bottom: 4px; }
+
+table.mini { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+table.mini th, table.mini td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+table.mini th { color: var(--faint); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.mini-note { color: var(--faint); font-size: 13.5px; }
+
+@media (max-width: 720px) {
+  .rankbar { grid-template-columns: 1fr; gap: 8px; }
+  .levels { grid-template-columns: 1fr; }
+}

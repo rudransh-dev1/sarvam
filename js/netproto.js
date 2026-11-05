@@ -252,7 +252,7 @@ export function b64decode(text) {
 
 export function httpRequest(host, rawUrl) {
   const url = String(rawUrl);
-  const m = url.match(/^https?:\/\/([^/:]+)(?::(\d+))?(\/[^\s]*)?$/);
+  const m = url.match(/^https?:\/\/([^/:]+)(?::(\d+))?(\/.*)?$/);
   if (!m) return { error: `curl: (3) URL rejected: ${url}` };
   const [, name, portRaw, pathRaw] = m;
   const port = Number(portRaw || (url.startsWith('https') ? 443 : 80));
@@ -260,14 +260,21 @@ export function httpRequest(host, rawUrl) {
   const target = (host.ports || []).find((p) => p.port === port);
   if (!target) return { error: `curl: (7) Failed to connect to ${name} port ${port}: Connection refused` };
   const web = target.web || {};
+  // Fixtures are written with plain spaces and quotes. Students type + or %20 or %27, so compare canonical forms.
+  const canon = (x) => {
+    let v = String(x);
+    try { v = decodeURIComponent(v.replace(/\+/g, ' ')); } catch { v = v.replace(/\+/g, ' ').replace(/%20/g, ' ').replace(/%27/g, "'"); }
+    return v.replace(/\s+/g, ' ').trim();
+  };
   let body = web[path];
   if (body === undefined) {
-    const decoded = path.replace(/%27/g, "'").replace(/%20/g, ' ');
-    body = web[decoded];
-    if (body === undefined) {
-      const star = Object.keys(web).find((k) => k.endsWith('*') && (path.startsWith(k.slice(0, -1)) || decoded.startsWith(k.slice(0, -1))));
-      if (star) body = web[star];
-    }
+    const want = canon(path);
+    const key = Object.keys(web).find((k) => !k.startsWith('__') && !k.endsWith('*') && canon(k) === want);
+    if (key !== undefined) body = web[key];
+  }
+  if (body === undefined) {
+    const star = Object.keys(web).find((k) => k.endsWith('*') && canon(path).startsWith(canon(k.slice(0, -1))));
+    if (star) body = web[star];
   }
   if (body === undefined) {
     return {

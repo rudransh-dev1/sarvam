@@ -1,4 +1,5 @@
 import { ADVANCED_PHASES } from './advanced.js';
+import { WEEKS } from './roadmap.js';
 
 /**
  * Sarvam curriculum.
@@ -907,14 +908,57 @@ Missing flags are real findings, not trivia.</div>
   }
 ];
 
-export const CURRICULUM = [...BASE_PHASES, ...ADVANCED_PHASES];
+/* ---------------------------------------------------------------------------
+ * The ladder is the 12-week internship roadmap. Each week is one gated level.
+ * Everything built earlier (bank hack, containers, privesc, detection...) stays as
+ * optional SIDE QUESTS: always open, never block the main path, still earn XP.
+ * ------------------------------------------------------------------------- */
+
+const roadmapPhases = [1, 2, 3].map((n) => {
+  const weeks = WEEKS.filter((w) => w.phase === n);
+  return {
+    id: 'rm-phase-' + n,
+    num: String(n).padStart(2, '0'),
+    title: weeks[0].phaseName,
+    meta: 'weeks ' + weeks[0].week + ' to ' + weeks[weeks.length - 1].week,
+    roadmap: true,
+    lessons: weeks.map((w) => ({
+      id: w.id,
+      week: w.week,
+      title: 'Week ' + w.week + ': ' + w.title,
+      sub: w.sub,
+      minutes: w.minutes,
+      labType: 'terminal',
+      boss: w.boss,
+      deliverable: w.deliverable,
+      map: w.map,
+      missions: w.missions,
+      resources: w.resources,
+      ai: w.ai,
+      concept: w.concept,
+      lab: w.lab,
+      cards: w.cards
+    }))
+  };
+});
+
+const sideQuestPhases = [...BASE_PHASES, ...ADVANCED_PHASES].map((phase) => ({
+  ...phase,
+  id: 'sq-' + phase.id,
+  title: phase.title,
+  meta: 'side quest · ' + (phase.meta || 'optional deep dive'),
+  sideQuest: true,
+  lessons: phase.lessons.map((l) => ({ ...l, bonus: true, sideQuest: true }))
+}));
+
+export const CURRICULUM = [...roadmapPhases, ...sideQuestPhases];
 
 /** Flat, ordered list: gating and "next lesson" logic depend on this order. */
 export const LESSONS = CURRICULUM.flatMap((phase) =>
   phase.lessons.map((l) => ({ ...l, phaseId: phase.id, phaseTitle: phase.title, phaseNum: phase.num }))
 );
 
-export const TOTAL_LESSONS = LESSONS.length;
+export const TOTAL_LESSONS = LESSONS.filter((l) => !l.sideQuest).length;
 
 export function lessonIndex(id) {
   return LESSONS.findIndex((l) => l.id === id);
