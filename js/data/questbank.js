@@ -95,6 +95,24 @@ function subnetQuests() {
 
 /* ---------------- encodings ---------------- */
 
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** Base64 without Buffer, so the bank loads in a plain browser. */
+const toBase64 = (str) => {
+  const bytes = [...str].map((c) => c.charCodeAt(0));
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b1 = bytes[i];
+    const b2 = bytes[i + 1];
+    const b3 = bytes[i + 2];
+    out += B64[b1 >> 2];
+    out += B64[((b1 & 3) << 4) | ((b2 || 0) >> 4)];
+    out += b2 === undefined ? '=' : B64[((b2 & 15) << 2) | ((b3 || 0) >> 6)];
+    out += b3 === undefined ? '=' : B64[b3 & 63];
+  }
+  return out;
+};
+
 const rot13 = (s) => s.replace(/[a-z]/gi, (c) => String.fromCharCode((c <= 'Z' ? 90 : 122) >= c.charCodeAt(0) + 13 ? c.charCodeAt(0) + 13 : c.charCodeAt(0) - 13));
 
 function encodeQuests() {
@@ -105,7 +123,7 @@ function encodeQuests() {
     const w = pick(rnd, words) + (i % 7 === 0 ? i : '');
     const mode = i % 4;
     if (mode === 0) {
-      const enc = Buffer.from(w).toString('base64');
+      const enc = toBase64(w);
       out.push({ id: 'qb-enc-b64-' + i, kind: 'decode', topic: 'crypto', title: 'Base64 picklock', prompt: 'Decode this and submit the word: ' + enc, answer: w, hint: 'echo ' + enc + ' | base64 -d', explain: 'Base64 is encoding, not encryption. It only hides text from a quick glance.' });
     } else if (mode === 1) {
       const enc = [...w].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
