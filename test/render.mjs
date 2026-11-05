@@ -38,6 +38,7 @@ const go = async (hash) => {
   await wait();
 };
 const state = () => JSON.parse(window.localStorage.getItem('sarvam.v1'));
+const P_done = () => Object.values(state().lessons || {}).filter((l) => l && l.done).length;
 
 await import('../js/app.js');
 await wait(40);
@@ -224,6 +225,14 @@ check('quest row shows done', $$('.quest.done').length === 1, `done ${$$('.quest
 
 await go('#/today/3');
 check('day tabs open another day', $('#app').innerHTML.includes('Day 3 of 6'), $('#app').innerHTML.slice(0, 90));
+
+
+/* ---------- quests are optional and roll over on their own ---------- */
+
+await go('#/today');
+check('today always offers four quests', $$('.quest').length === 4, `got ${$$('.quest').length}`);
+check('quests never gate a level', !$('#app').innerHTML.includes('Complete your quests first'));
+check('board says the quests are optional', $('#app').innerHTML.includes('optional'), 'no optional wording');
 
 
 console.log(`\n${pass} render checks passed, ${fails.length} failed`);

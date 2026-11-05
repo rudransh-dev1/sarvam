@@ -195,6 +195,17 @@ for (const week of WEEKS) {
   });
 }
 
+
+/* ---------- daily rollover is calendar based ---------- */
+
+const { questDayFor } = await import('../js/progress.js');
+const roll = questDayFor('2026-11-01', '2026-11-05');
+check('rollover: day 5 of week 1 after four days', roll.dayInWeek === 5 && roll.weekIndex === 0, JSON.stringify(roll));
+const roll2 = questDayFor('2026-11-01', '2026-11-08');
+check('rollover: week 2 day 2 after seven days', roll2.dayInWeek === 2 && roll2.weekIndex === 1, JSON.stringify(roll2));
+const roll3 = questDayFor('2026-11-01', '2026-11-22');
+check('rollover: week 4 after three weeks', roll3.weekIndex === 3, JSON.stringify(roll3));
+
 console.log(`\n${pass} roadmap checks passed, ${fails.length} failed`);
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('roadmap ok');

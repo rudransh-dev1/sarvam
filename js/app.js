@@ -714,7 +714,7 @@ function renderToday(pickDay) {
   app.innerHTML = `
     <div class="page-head">
       <h1>Today</h1>
-      <p>Four quests a day, six days a week. Week ${week.week} · ${esc(week.title)}.${ahead ? ' Roadmap finished, keep your streak alive with side quests and review.' : ''}</p>
+      <p>Four optional quests, and they change every day on their own. Nothing here blocks a level. Week ${week.week} · ${esc(week.title)}.${ahead ? ' Roadmap finished, keep your streak alive with side quests and review.' : ''}</p>
     </div>
     <div class="today-wrap">
       <div class="card today-card">
@@ -726,7 +726,7 @@ function renderToday(pickDay) {
         <div class="quests">${rows}</div>
         <div class="quest-foot">
           <a class="ghost" href="#/lesson/${week.id}">Open week ${week.week}</a>
-          <button data-act="next-day" class="primary">${done === quests.length ? 'Next day →' : 'Mark the rest later'}</button>
+          <button data-act="next-day" class="ghost">See tomorrow's four →</button>
         </div>
       </div>
       <div class="today-side">
@@ -736,7 +736,7 @@ function renderToday(pickDay) {
         </div>
         <div class="card">
           <div class="card-head"><h3>Daily habit</h3></div>
-          <p class="quest-detail">Every day ends with one of: clear your review cards, commit your work, or explain a concept out loud. The fourth quest rotates through these on purpose.</p>
+          <p class="quest-detail">The fourth quest is always a habit: review cards, commit your work, or explain a concept out loud. Miss a day and nothing is lost, the board simply moves on.</p>
           <a class="ghost" href="#/review">Review now →</a>
         </div>
       </div>

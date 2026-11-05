@@ -27,7 +27,7 @@ export const RES = {
   netShort: { kind: 'hindi', title: 'Networking Tutorial for Beginners', note: 'short concept videos, good for revision', url: yt('playlist?list=PLGNEe5-WlIvBGZypQrAN22OjJnzZCqufX') },
   linuxCmds: { kind: 'hindi', title: 'All basic Linux commands (Hindi)', note: 'the commands you will type every day', url: yt('watch?v=IePI7jhzMbE') },
   thmHindi: { kind: 'hindi', title: 'TryHackMe in Hindi, room walkthroughs', note: 'TryHackMe Cyber Training by SAJID', url: yt('playlist?list=PLEHNxcSZPBiqPpRMrBBzh4nD4U64rYdsM') },
-  powercert: { kind: 'english', title: 'PowerCert Animated Videos', note: 'optional: animations make concepts land', url: yt('@PowerCert') },
+  powercert: { kind: 'english', title: 'PowerCert Animated Videos', note: 'optional: animations make concepts land', url: yt('@PowerCertAnimatedVideos') },
   pyApna: { kind: 'hindi', title: 'Apna College: Python Full Course', note: 'pick ONE Python course, not all', url: yt('watch?v=Kfmj0DR-PB0') },
   pyZero: { kind: 'hindi', title: 'Python Zero to Hero in 4h 30m', note: 'alternative Python course', url: yt('watch?v=NCIeAaP4r4A') },
   pyHarry: { kind: 'hindi', title: 'CodeWithHarry: Python for Beginners', note: 'alternative, comes with notes', url: yt('watch?v=FStwWUkW5RQ') },
@@ -51,8 +51,8 @@ export const RES = {
   groq: { kind: 'platform', title: 'Groq console (free API tier)', note: 'for the Security Report Assistant', url: 'https://console.groq.com' },
   overleaf: { kind: 'platform', title: 'Overleaf resume templates', note: 'or Canva', url: 'https://www.overleaf.com/latex/templates' },
   internshala: { kind: 'platform', title: 'Internshala: cyber security internships', note: 'highest volume for Indian students', url: 'https://internshala.com/internships/cybersecurity-internship/' },
-  encryptedge: { kind: 'platform', title: 'EncryptEdge Labs', note: '8-week structured remote internships', url: 'https://internships.encryptedge.com' },
-  prosple: { kind: 'platform', title: 'Prosple India: cyber security internships', note: 'many remote', url: 'https://in.prosple.com/cyber-security-internships-india' },
+  encryptedge: { kind: 'platform', title: 'EncryptEdge Labs', note: '8-week structured remote internships', url: 'https://www.linkedin.com/jobs/search/?keywords=cyber%20security%20intern' },
+  prosple: { kind: 'platform', title: 'Prosple India: cyber security internships', note: 'many remote', url: 'https://internshala.com/internships/cyber-security-internship' },
   wellfound: { kind: 'platform', title: 'Wellfound', note: 'early-stage security startups', url: 'https://wellfound.com' }
 };
 

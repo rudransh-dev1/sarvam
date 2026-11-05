@@ -118,7 +118,7 @@ export function buildApp(spec) {
     },
     '/about': ({ raw }) => {
       setUrl(raw);
-      view.innerHTML = '<h1>About Nimbus</h1><p class="muted">Nimbus is a demo notes service used to practise web security. Everything here is simulated.</p>';
+      view.innerHTML = '<h1>About Nimbus</h1><p class="muted">Nimbus is a practice notes service. It runs inside this browser tab so you can break it safely.</p>';
     },
     '/note': ({ raw, params }) => {
       setUrl(raw);

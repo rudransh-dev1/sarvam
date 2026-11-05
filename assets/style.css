@@ -4,27 +4,27 @@
    ========================================================================== */
 
 :root {
-  --bg: #070a11;
-  --bg-2: #0a0f19;
-  --panel: rgba(17, 24, 38, 0.72);
-  --panel-2: #0e1522;
-  --panel-3: #121b2b;
-  --line: rgba(151, 180, 212, 0.14);
-  --line-strong: rgba(151, 180, 212, 0.26);
-  --text: #e7eefa;
-  --muted: #94a6c0;
-  --faint: #64748b;
-  --mint: #4fe3ab;
-  --mint-dim: rgba(79, 227, 171, 0.16);
-  --lav: #a99bff;
-  --lav-dim: rgba(169, 155, 255, 0.16);
-  --sky: #86d3ff;
-  --amber: #ffd48a;
-  --red: #ff8fa3;
+  --bg: #0c141c;
+  --bg-2: #101a24;
+  --panel: rgba(24, 35, 47, 0.66);
+  --panel-2: #16202c;
+  --panel-3: #1b2734;
+  --line: rgba(163, 190, 210, 0.13);
+  --line-strong: rgba(163, 190, 210, 0.24);
+  --text: #dfe8f1;
+  --muted: #9fb0c2;
+  --faint: #728497;
+  --mint: #8ad9bb;
+  --mint-dim: rgba(138, 217, 187, 0.14);
+  --lav: #b3a9ea;
+  --lav-dim: rgba(179, 169, 234, 0.13);
+  --sky: #9ccbe4;
+  --amber: #eccf9c;
+  --red: #e8a0a8;
   --radius: 16px;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --serif: "Iowan Old Style", "Palatino Linotype", Georgia, ui-serif, serif;
+  --sans: "Inter", "Segoe UI Variable", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --serif: "Inter", "Segoe UI Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.9);
 }
 
@@ -36,8 +36,10 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 17px;
-  line-height: 1.62;
+  font-size: 16.8px;
+  line-height: 1.72;
+  letter-spacing: 0.001em;
+  -webkit-font-smoothing: antialiased;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -80,7 +82,7 @@ main {
 a { color: var(--sky); text-decoration: none; transition: color 0.15s ease; }
 a:hover { color: var(--mint); }
 
-h1, h2, h3 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.01em; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.012em; line-height: 1.24; }
 h1 { font-size: 40px; line-height: 1.15; margin: 0 0 10px; }
 h2 { font-size: 25px; margin: 0; }
 h3 { font-size: 19px; margin: 0; }

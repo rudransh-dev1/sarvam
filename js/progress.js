@@ -231,16 +231,21 @@ export function toggleMission(lessonId, missionId) {
 
 /* ---------- daily quests ---------- */
 
+/** Pure date math so the rollover can be tested without waiting a day. */
+export function questDayFor(startISO, nowISO, daysPerWeek = 6) {
+  const [y, m, d] = String(startISO || nowISO).split('-').map(Number);
+  const [ny, nm, nd] = String(nowISO).split('-').map(Number);
+  const start = Date.UTC(y, m - 1, d);
+  const now = Date.UTC(ny, nm - 1, nd);
+  const elapsed = Math.max(0, Math.round((now - start) / DAY));
+  return { elapsed, weekIndex: Math.floor(elapsed / daysPerWeek), dayInWeek: (elapsed % daysPerWeek) + 1 };
+}
+
 /** Which week and day the student is on: one study day per calendar day since day one. */
 export function questClock(daysPerWeek = 6) {
-  const [y, m, d] = (state.created || today()).split('-').map(Number);
-  const start = Date.UTC(y, m - 1, d);
   const now = new Date();
-  const nowUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const elapsed = Math.max(0, Math.round((nowUtc - start) / DAY));
-  const weekIndex = Math.floor(elapsed / daysPerWeek);
-  const dayInWeek = (elapsed % daysPerWeek) + 1;
-  return { elapsed, weekIndex, dayInWeek };
+  const nowISO = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  return questDayFor(state.created || nowISO, nowISO, daysPerWeek);
 }
 
 export function questDone(questId) {
